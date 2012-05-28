@@ -35,7 +35,8 @@ module testbench
    
    parameter num_ports = 8;
    
-   parameter wf_alloc_type = `WF_ALLOC_TYPE_DPA;
+   parameter ref_wf_alloc_type = `WF_ALLOC_TYPE_DPA;
+   parameter dut_wf_alloc_type = `WF_ALLOC_TYPE_SDPA;
    
    parameter reset_type = `RESET_TYPE_ASYNC;
    
@@ -50,24 +51,43 @@ module testbench
    
    reg [0:num_ports*num_ports-1] req;
    
-   wire [0:num_ports*num_ports-1] gnt;
+   wire [0:num_ports*num_ports-1] ref_gnt;
    
-   wire 			  update;
-   assign update = |gnt;
+   wire 			  ref_update;
+   assign ref_update = |ref_gnt;
    
    c_wf_alloc
      #(.num_ports(num_ports),
        .num_priorities(1),
-       .wf_alloc_type(wf_alloc_type),
+       .wf_alloc_type(ref_wf_alloc_type),
        .reset_type(reset_type))
-   dut
+   ref_wf
      (.clk(clk),
       .reset(reset),
       .active(1'b1),
       .req_pr(req),
-      .gnt_pr(gnt),
+      .gnt_pr(ref_gnt),
       .gnt(),
-      .update(update));
+      .update(ref_update));
+   
+   wire [0:num_ports*num_ports-1] dut_gnt;
+
+   wire 			  dut_update;
+   assign dut_update = |dut_gnt;
+
+   c_wf_alloc
+     #(.num_ports(num_ports),
+       .num_priorities(1),
+       .wf_alloc_type(dut_wf_alloc_type),
+       .reset_type(reset_type))
+   dut_wf
+     (.clk(clk),
+      .reset(reset),
+      .active(1'b1),
+      .req_pr(req),
+      .gnt_pr(dut_gnt),
+      .gnt(),
+      .update(dut_update));
    
    always
    begin
@@ -101,7 +121,7 @@ module testbench
 	     begin
 		@(posedge clk);
 		elapsed = elapsed + 1;
-		req = req & ~gnt;
+		req = req & ~ref_gnt;
 	     end
 	   total_elapsed = total_elapsed + elapsed;
 	end
@@ -109,5 +129,23 @@ module testbench
 	       num_patterns, total_elapsed);
       $finish;
    end
+   
+   always @(negedge clk)
+     begin
+	if(ref_gnt != dut_gnt)
+	  begin
+	     $display("Mismatch detected!");
+	     $display("Request matrix:");
+	     for(i = 0; i < num_ports; i = i + 1)
+	       $display(" %b", req[i*num_ports +: num_ports]);
+	     $display("Reference grant matrix:");
+	     for(i = 0; i < num_ports; i = i + 1)
+	       $display(" %b", ref_gnt[i*num_ports +: num_ports]);
+	     $display("DUT grant matrix:");
+	     for(i = 0; i < num_ports; i = i + 1)
+	       $display(" %b", dut_gnt[i*num_ports +: num_ports]);
+	     $stop;
+	  end
+     end
    
 endmodule
