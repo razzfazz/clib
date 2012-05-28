@@ -144,7 +144,10 @@
 // Networks"
 `define WF_ALLOC_TYPE_LOOP 4
 
-`define WF_ALLOC_TYPE_LAST `WF_ALLOC_TYPE_LOOP
+// variant implementing a somewhat simplified Diagonal Propagation Arbiter
+`define WF_ALLOC_TYPE_SDPA 5
+
+`define WF_ALLOC_TYPE_LAST `WF_ALLOC_TYPE_SDPA
 
 
 //------------------------------------------------------------------------------

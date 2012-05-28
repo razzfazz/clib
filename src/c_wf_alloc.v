@@ -148,6 +148,19 @@ module c_wf_alloc
 		.gnt(gnt_pr),
 		.update(update));
 	  end
+	`WF_ALLOC_TYPE_SDPA:
+	  begin
+	     c_wf_alloc_sdpa
+	       #(.num_ports(num_ports),
+		 .reset_type(reset_type))
+	     core_sdpa
+	       (.clk(clk),
+		.reset(reset),
+		.active(active),
+		.req(req_pr),
+		.gnt(gnt_pr),
+		.update(update));
+	  end
       endcase
       
    endgenerate
