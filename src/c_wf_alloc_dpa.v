@@ -26,7 +26,7 @@
 */
 
 //==============================================================================
-// wavefron allocator variant implementing a Diagonal Propagation Arbiter as
+// wavefront allocator variant implementing a Diagonal Propagation Arbiter as
 // described in Hurt et al, "Design and Implementation of High-Speed Symmetric 
 // Crossbar Schedulers"
 //==============================================================================
@@ -122,7 +122,7 @@ module c_wf_alloc_dpa
 	   assign gnt[((2*num_ports-1-col)%num_ports)*num_ports+col]
 		    = gnt_out[num_ports-1];
 	   
-	end	     
+	end
       
    endgenerate
    
