@@ -43,53 +43,23 @@ module c_prio_enc
    input [0:num_ports-1] data_in;
    
    // binary encoded output data
-   output [0:width-1] data_out;
-   wire [0:width-1] data_out;
-
-   wire [0:(width+1)*num_ports-1] masks;
-   assign masks[0:num_ports-1] = {num_ports{1'b1}};
+   output [0:width-1] 	 data_out;
+   wire [0:width-1] 	 data_out;
    
-   generate
-      
-      genvar 	    level;
-      for(level = 0; level < width; level = level + 1)
-	begin:levels
-	   
-	   wire 		sel;
-	   
-	   wire [0:num_ports-1] mask_in;
-	   assign mask_in = masks[level*num_ports:(level+1)*num_ports-1];
-	   
-	   wire [0:num_ports-1] bits;
-	   wire 		value;
-	   wire [0:num_ports-1] mask_out;
-	   
-	   genvar 		position;
-	   for(position = 0; position < num_ports; position = position + 1)
-	     begin:positions
-		if(position & (1 << level))
-		  begin
-		     assign bits[position]
-			      = data_in[position] & mask_in[position];
-		     assign mask_out[position]
-			      = mask_in[position] & value;
-		  end
-		else
-		  begin
-		     assign bits[position] = 1'b0;
-		     assign mask_out[position]
-			      = mask_in[position] & ~value;
-		  end
-	     end
-	   
-	   assign value = |bits;
-
-	   assign data_out[(width-1)-level] = value;
-	   assign mask_out[(level+1)*num_ports:(level+2)*num_ports-1]
-		    = mask_out;
-	   
-	end
-      
-   endgenerate
+   wire [0:num_ports-1]  data_intm;
+   c_lod
+     #(.width(num_ports),
+       .num_priorities(1))
+   lod
+     (.data_in_pr(data_in),
+      .data_out_pr(data_intm),
+      .data_out(),
+      .mask_out());
+   
+   c_encode
+     #(.num_ports(num_ports))
+   enc
+     (.data_in(data_intm),
+      .data_out(data_out));
    
 endmodule
