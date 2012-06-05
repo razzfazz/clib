@@ -42,7 +42,11 @@ module c_decode
    // start at offset
    parameter offset = 0;
    
+   // use 'thermometer' encoding
+   parameter therm_enc = 0;
+   
    localparam width = clogb(num_ports);
+   localparam [0:0] fillchar = therm_enc ? 1'b1 : 1'b0;
    
    // encoded input data
    input [0:width-1] data_in;

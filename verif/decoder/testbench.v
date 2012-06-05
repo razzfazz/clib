@@ -30,6 +30,7 @@
 module testbench
   #(parameter num_ports = 8,
     parameter offset = 0,
+    parameter therm_enc = 1,
     parameter initial_seed = 0)
    ();
 
@@ -42,7 +43,8 @@ module testbench
    
    c_decode
      #(.num_ports(num_ports),
-       .offset(offset))
+       .offset(offset),
+       .therm_enc(therm_enc))
    dut
      (.data_in(data_in),
       .data_out(data_out));
@@ -61,6 +63,9 @@ module testbench
 	   data_in = test;
 	   data_ref = {num_ports{1'b0}};
 	   data_ref[(test+num_ports-offset)%num_ports] = 1'b1;
+	   if(therm_enc)
+	     for(i = test + 1; i < num_ports; i = i + 1)
+	       data_ref[(i+num_ports-offset)%num_ports] = 1'b1;
 	   #1;
 	   if(data_out != data_ref)
 	     $display("ERROR: in=%b, out=%b, expected=%b",

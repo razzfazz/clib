@@ -32,15 +32,15 @@ int main(int argc, char ** argv) {
     for(int pos = 0; pos < size; ++pos) {
       std::cout
 	<< "               ((" << pos << " + offset) % " << size << "):\n"
-	<< "                 data_out = " << size << "'b";
-      for(int i = 0; i < pos; ++i) {
-	std::cout << "0";
+	<< "                 data_out = {";
+      if(pos > 0) {
+	std::cout << "{" << pos << "{1'b0}}, ";
       }
-      std::cout << "1";
-      for(int i = pos + 1; i < size; ++i) {
-	std::cout << "0";
+      std::cout << "1'b1";
+      if(pos + 1 < size) {
+	std::cout << ", {" << (size - pos - 1) << "{fillchar}}";
       }
-      std::cout << ";\n";
+      std::cout << "};\n";
     }
     std::cout
       << "               default:\n"
