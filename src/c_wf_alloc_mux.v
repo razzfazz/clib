@@ -94,8 +94,7 @@ module c_wf_alloc_mux
 	   wire [0:num_ports] 	x_out, y_out;
 	   
 	   assign x_in = x_out[0:num_ports-1];
-	   assign y_in = y[((row+num_ports)%num_ports)*num_ports:
-			   ((row+num_ports)%num_ports+1)*num_ports-1];
+	   assign y_in = y[row*num_ports:(row+1)*num_ports-1];
 	   
 	   wire [0:num_ports-1] req_in;
 	   
@@ -105,8 +104,8 @@ module c_wf_alloc_mux
 	   wire [0:num_ports-1] gnt_out;
 	   assign gnt_out = req_in & x_in & y_in;
 	   
-	   assign y[((row+num_ports+1)%num_ports)*num_ports:
-		    ((row+num_ports+1)%num_ports+1)*num_ports-1]
+	   assign y[((row+1)%num_ports)*num_ports:
+		    ((row+1)%num_ports+1)*num_ports-1]
 		    = y_out[0:num_ports-1];
 	   
 	   wire [0:num_ports-1] gnt_row;
@@ -127,19 +126,19 @@ module c_wf_alloc_mux
 		
 		wire [0:num_ports-1] req_rot;
 		assign req_rot
-		  = req_dup[(col+num_ports-row)%num_ports:
-			    (col+num_ports-row)%num_ports+num_ports-1];
+		  = req_dup[(col+(num_ports-1-row)+1)%num_ports:
+			    (col+(num_ports-1-row)+1)%num_ports+num_ports-1];
 		
 		assign req_in[col] = req_rot[prio_q];
 		
 		// need to reverse the grant vector
-		assign gnt_dup[num_ports-col-1] = gnt_out[col];
-		assign gnt_dup[2*num_ports-col-1] = gnt_out[col];
+		assign gnt_dup[num_ports-1-col] = gnt_out[col];
+		assign gnt_dup[num_ports+(num_ports-1-col)] = gnt_out[col];
 		
 		wire [0:num_ports-1] gnt_rot;
 		assign gnt_rot
-		  = gnt_dup[(2*num_ports-row-col-1)%num_ports:
-			    (2*num_ports-row-col-1)%num_ports+
+		  = gnt_dup[((num_ports-1-row)+(num_ports-1-col)+1)%num_ports:
+			    ((num_ports-1-row)+(num_ports-1-col)+1)%num_ports+
 			    num_ports-1];
 		
 		assign gnt_row[col] = gnt_rot[prio_q];
