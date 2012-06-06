@@ -33,6 +33,7 @@ module c_rr_arbiter
   (clk, reset, active, req_pr, gnt_pr, gnt, update);
    
 `include "c_constants.v"
+`include "c_functions.v"
    
    // number of input ports
    parameter num_ports = 32;
@@ -42,6 +43,12 @@ module c_rr_arbiter
    
    // perform masking between priorities
    parameter mask_priorities = 1;
+   
+   // store priorities in encoded form
+   parameter encode_state = 1;
+   
+   // width of encoded arbiter state
+   localparam state_width = clogb(num_ports);
    
    parameter reset_type = `RESET_TYPE_ASYNC;
    
@@ -153,19 +160,60 @@ module c_rr_arbiter
 		
 	     end
 	   
-	   wire [0:num_ports-2] mask_s, mask_q;
-	   assign mask_s = update ? next_mask[1:num_ports-1] : mask_q;
-	   c_dff
-	     #(.width(num_ports-1),
-	       .reset_type(reset_type))
-	   maskq
-	     (.clk(clk),
-	      .reset(reset),
-	      .active(active),
-	      .d(mask_s),
-	      .q(mask_q));
-	   
-	   assign mask = {1'b0, mask_q};
+	   if(encode_state)
+	     begin
+		
+		wire [0:num_ports-1] gnt_rot;
+		assign gnt_rot = {gnt[num_ports-1], gnt[0:num_ports-2]};
+		
+		wire [0:state_width-1] next_state;
+		c_prio_enc
+		  #(.num_ports(num_ports))
+		penc
+		  (.data_in(gnt_rot),
+		   .data_out(next_state));
+		
+		wire [0:state_width-1] state_s, state_q;
+		assign state_s = update ? next_state : state_q;
+		c_dff
+		  #(.width(state_width),
+		    .reset_type(reset_type))
+		stateq
+		  (.clk(clk),
+		   .reset(reset),
+		   .active(active),
+		   .d(state_s),
+		   .q(state_q));
+		
+		wire [0:num_ports-1]   state_therm;
+		c_decode
+		  #(.num_ports(num_ports),
+		    .therm_enc(1))
+		tenc
+		  (.data_in(state_q),
+		   .data_out(state_therm));
+		
+		assign mask = {1'b0, state_therm[0:num_ports-2]};
+		
+	     end
+	   else
+	     begin
+		
+		wire [0:num_ports-2] mask_s, mask_q;
+		assign mask_s = update ? next_mask[1:num_ports-1] : mask_q;
+		c_dff
+		  #(.width(num_ports-1),
+		    .reset_type(reset_type))
+		maskq
+		  (.clk(clk),
+		   .reset(reset),
+		   .active(active),
+		   .d(mask_s),
+		   .q(mask_q));
+		
+		assign mask = {1'b0, mask_q};
+		
+	     end
 	   
 	end	
       
