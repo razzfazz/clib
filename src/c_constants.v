@@ -47,14 +47,17 @@
 // arbiter types
 //------------------------------------------------------------------------------
 
-// round-robin arbiter
-`define ARBITER_TYPE_ROUND_ROBIN 0
+// round-robin arbiter with binary-encoded state
+`define ARBITER_TYPE_ROUND_ROBIN_BINARY  0
+
+// round-robin arbiter with one-hot encoded state
+`define ARBITER_TYPE_ROUND_ROBIN_ONE_HOT 1
 
 // matrix arbiter
-`define ARBITER_TYPE_MATRIX      1
+`define ARBITER_TYPE_MATRIX              2
 
 // DesignWare first-come, first-serve arbiter
-`define ARBITER_TYPE_DW_FCFS     2
+`define ARBITER_TYPE_DW_FCFS             3
 
 `define ARBITER_TYPE_LAST `ARBITER_TYPE_DW_FCFS
 

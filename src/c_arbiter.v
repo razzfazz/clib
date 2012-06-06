@@ -48,7 +48,7 @@ module c_arbiter
    localparam port_idx_width = clogb(num_ports);
    
    // select type of arbiter to use
-   parameter arbiter_type = `ARBITER_TYPE_ROUND_ROBIN;
+   parameter arbiter_type = `ARBITER_TYPE_ROUND_ROBIN_BINARY;
    
    parameter reset_type = `RESET_TYPE_ASYNC;
    
@@ -74,13 +74,14 @@ module c_arbiter
       
       case(arbiter_type)
 	
-	`ARBITER_TYPE_ROUND_ROBIN:
+	`ARBITER_TYPE_ROUND_ROBIN_BINARY, `ARBITER_TYPE_ROUND_ROBIN_ONE_HOT:
 	  begin
 	     
 	     c_rr_arbiter
 	       #(.num_ports(num_ports),
 		 .num_priorities(num_priorities),
 		 .mask_priorities(mask_priorities),
+		 .encode_state(arbiter_type==`ARBITER_TYPE_ROUND_ROBIN_BINARY),
 		 .reset_type(reset_type))
 	     rr_arb
 	       (.clk(clk),
