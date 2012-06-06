@@ -35,7 +35,7 @@ module testbench
    
    parameter num_ports = 4;
    parameter num_priorities = 4;
-   parameter arbiter_type = `ARBITER_TYPE_ROUND_ROBIN;
+   parameter arbiter_type = `ARBITER_TYPE_ROUND_ROBIN_BINARY;
    parameter reset_type = `RESET_TYPE_ASYNC;
    
    parameter Tclk = 2;
