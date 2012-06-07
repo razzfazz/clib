@@ -163,14 +163,12 @@ module c_rr_arbiter
 	   if(encode_state)
 	     begin
 		
-		wire [0:num_ports-1] gnt_rot;
-		assign gnt_rot = {gnt[num_ports-1], gnt[0:num_ports-2]};
-		
 		wire [0:state_width-1] next_state;
 		c_encode
-		  #(.num_ports(num_ports))
+		  #(.num_ports(num_ports),
+		    .offset(1))
 		next_state_enc
-		  (.data_in(gnt_rot),
+		  (.data_in(gnt),
 		   .data_out(next_state));
 		
 		wire [0:state_width-1] state_s, state_q;
