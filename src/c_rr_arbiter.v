@@ -167,9 +167,9 @@ module c_rr_arbiter
 		assign gnt_rot = {gnt[num_ports-1], gnt[0:num_ports-2]};
 		
 		wire [0:state_width-1] next_state;
-		c_prio_enc
+		c_encode
 		  #(.num_ports(num_ports))
-		penc
+		next_state_enc
 		  (.data_in(gnt_rot),
 		   .data_out(next_state));
 		
@@ -189,7 +189,7 @@ module c_rr_arbiter
 		c_decode
 		  #(.num_ports(num_ports),
 		    .therm_enc(1))
-		tenc
+		state_therm_dec
 		  (.data_in(state_q),
 		   .data_out(state_therm));
 		
