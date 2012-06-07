@@ -35,8 +35,7 @@ module testbench
    
    parameter num_ports = 8;
    
-   parameter ref_wf_alloc_type = `WF_ALLOC_TYPE_DPA;
-   parameter dut_wf_alloc_type = `WF_ALLOC_TYPE_SDPA;
+   parameter wf_alloc_type = `WF_ALLOC_TYPE_SDPA;
    
    parameter reset_type = `RESET_TYPE_ASYNC;
    
@@ -51,43 +50,61 @@ module testbench
    
    reg [0:num_ports*num_ports-1] req;
    
-   wire [0:num_ports*num_ports-1] ref_gnt;
+   wire [0:num_ports*num_ports-1] gnt;
    
-   wire 			  ref_update;
-   assign ref_update = |ref_gnt;
+   wire 			  update;
+   assign update = |req;
    
    c_wf_alloc
      #(.num_ports(num_ports),
        .num_priorities(1),
-       .wf_alloc_type(ref_wf_alloc_type),
+       .wf_alloc_type(wf_alloc_type),
        .reset_type(reset_type))
-   ref_wf
+   dut
      (.clk(clk),
       .reset(reset),
       .active(1'b1),
       .req_pr(req),
-      .gnt_pr(ref_gnt),
+      .gnt_pr(gnt),
       .gnt(),
-      .update(ref_update));
+      .update(update));
    
-   wire [0:num_ports*num_ports-1] dut_gnt;
-
-   wire 			  dut_update;
-   assign dut_update = |dut_gnt;
-
-   c_wf_alloc
-     #(.num_ports(num_ports),
-       .num_priorities(1),
-       .wf_alloc_type(dut_wf_alloc_type),
-       .reset_type(reset_type))
-   dut_wf
-     (.clk(clk),
-      .reset(reset),
-      .active(1'b1),
-      .req_pr(req),
-      .gnt_pr(dut_gnt),
-      .gnt(),
-      .update(dut_update));
+   wire [0:num_ports*num_ports-1] gnt_xp;
+   c_interleave
+     #(.width(num_ports*num_ports),
+       .num_blocks(num_ports))
+   gnt_xp_intl
+     (.data_in(gnt),
+      .data_out(gnt_xp));
+   
+   wire [0:num_ports-1] 	  row_multi_hot_error;
+   wire [0:num_ports-1] 	  col_multi_hot_error;
+   
+   genvar 			  idx;
+   
+   generate
+      
+      for(idx = 0; idx < num_ports; idx = idx + 1)
+	begin:idxs
+	   
+	   c_multi_hot_det
+	     #(.width(num_ports))
+	   row_mhd
+	     (.data(gnt[idx*num_ports:(idx+1)*num_ports-1]),
+	      .multi_hot(row_multi_hot_error[idx]));
+	   
+	   c_multi_hot_det
+	     #(.width(num_ports))
+	   col_mhd
+	     (.data(gnt_xp[idx*num_ports:(idx+1)*num_ports-1]),
+	      .multi_hot(col_multi_hot_error[idx]));
+	   
+	end
+      
+   endgenerate
+   
+   wire [0:num_ports*num_ports-1] stray_gnt_error;
+   assign stray_gnt_error = gnt & ~req;
    
    always
    begin
@@ -121,7 +138,7 @@ module testbench
 	     begin
 		@(posedge clk);
 		elapsed = elapsed + 1;
-		req = req & ~ref_gnt;
+		req = req & ~gnt;
 	     end
 	   total_elapsed = total_elapsed + elapsed;
 	end
@@ -132,18 +149,40 @@ module testbench
    
    always @(negedge clk)
      begin
-	if(ref_gnt != dut_gnt)
+	if(|row_multi_hot_error)
 	  begin
-	     $display("Mismatch detected!");
+	     $display("Multiple grants per input detected!");
 	     $display("Request matrix:");
 	     for(i = 0; i < num_ports; i = i + 1)
 	       $display(" %b", req[i*num_ports +: num_ports]);
-	     $display("Reference grant matrix:");
+	     $display("Grant matrix:");
 	     for(i = 0; i < num_ports; i = i + 1)
-	       $display(" %b", ref_gnt[i*num_ports +: num_ports]);
-	     $display("DUT grant matrix:");
+	       $display(" %b", gnt[i*num_ports +: num_ports]);
+	     $stop;
+	  end
+	if(|col_multi_hot_error)
+	  begin
+	     $display("Multiple grants per output detected!");
+	     $display("Request matrix:");
 	     for(i = 0; i < num_ports; i = i + 1)
-	       $display(" %b", dut_gnt[i*num_ports +: num_ports]);
+	       $display(" %b", req[i*num_ports +: num_ports]);
+	     $display("Grant matrix:");
+	     for(i = 0; i < num_ports; i = i + 1)
+	       $display(" %b", gnt[i*num_ports +: num_ports]);
+	     $stop;
+	  end
+	if(|stray_gnt_error)
+	  begin
+	     $display("Stray grant detected!");
+	     $display("Request matrix:");
+	     for(i = 0; i < num_ports; i = i + 1)
+	       $display(" %b", req[i*num_ports +: num_ports]);
+	     $display("Grant matrix:");
+	     for(i = 0; i < num_ports; i = i + 1)
+	       $display(" %b", gnt[i*num_ports +: num_ports]);
+	     $display("Stray grant matrix:");
+	     for(i = 0; i < num_ports; i = i + 1)
+	       $display(" %b", stray_gnt_error[i*num_ports +: num_ports]);
 	     $stop;
 	  end
      end
