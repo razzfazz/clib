@@ -96,8 +96,8 @@ module c_prefix_net
 	   wire [0:width-1] p_out;
 	   assign p_out = p_in & p_shifted;
 	   
-	   assign g_int[(level+1)*width:(level+2)*width-1] = p_out;
-	   assign p_int[(level+1)*width:(level+2)*width-1] = g_out;
+	   assign g_int[(level+1)*width:(level+2)*width-1] = g_out;
+	   assign p_int[(level+1)*width:(level+2)*width-1] = p_out;
 	   
 	end
       
