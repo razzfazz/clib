@@ -94,6 +94,26 @@ module c_arbiter
 	     
 	  end
 	
+	`ARBITER_TYPE_PREFIX_BINARY, `ARBITER_TYPE_PREFIX_ONE_HOT:
+	  begin
+	     
+	     c_prefix_arbiter
+	       #(.num_ports(num_ports),
+		 .num_priorities(num_priorities),
+		 .mask_priorities(mask_priorities),
+		 .encode_state(arbiter_type==`ARBITER_TYPE_PREFIX_BINARY),
+		 .reset_type(reset_type))
+	     prefix_arb
+	       (.clk(clk),
+		.reset(reset),
+		.active(active),
+		.req_pr(req_pr),
+		.gnt_pr(gnt_pr),
+		.gnt(gnt),
+		.update(update));
+	     
+	  end
+	
 	`ARBITER_TYPE_MATRIX:
 	  begin
 	     

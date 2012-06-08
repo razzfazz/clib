@@ -53,11 +53,17 @@
 // round-robin arbiter with one-hot encoded state
 `define ARBITER_TYPE_ROUND_ROBIN_ONE_HOT 1
 
+// prefix arbiter with binary-encoded state
+`define ARBITER_TYPE_PREFIX_BINARY       2
+
+// prefix arbiter with one-hot encoded state
+`define ARBITER_TYPE_PREFIX_ONE_HOT      3
+
 // matrix arbiter
-`define ARBITER_TYPE_MATRIX              2
+`define ARBITER_TYPE_MATRIX              4
 
 // DesignWare first-come, first-serve arbiter
-`define ARBITER_TYPE_DW_FCFS             3
+`define ARBITER_TYPE_DW_FCFS             5
 
 `define ARBITER_TYPE_LAST `ARBITER_TYPE_DW_FCFS
 
