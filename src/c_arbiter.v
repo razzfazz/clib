@@ -41,9 +41,6 @@ module c_arbiter
    // number of priority levels
    parameter num_priorities = 1;
    
-   // perform masking between priorities
-   parameter mask_priorities = 1;
-   
    // number fo bits required to select a port
    localparam port_idx_width = clogb(num_ports);
    
@@ -80,20 +77,13 @@ module c_arbiter
       if(num_ports == 1)
 	begin
 	   
-	   if(mask_priorities)
-	     begin
-		
-		c_lod
-		  #(.width(num_priorities),
-		    .num_priorities(1))
-		gnt_lod
-		  (.data_in_pr(req_pr),
-		   .data_out_pr(gnt_pr),
-		   .data_out());
-		
-	     end
-	   else
-	     assign gnt_pr = req_pr;
+	   c_lod
+	     #(.width(num_priorities),
+	       .num_priorities(1))
+	   gnt_lod
+	     (.data_in_pr(req_pr),
+	      .data_out_pr(gnt_pr),
+	      .data_out());
 	   
 	   assign gnt = |req_pr;
 	   
@@ -110,7 +100,6 @@ module c_arbiter
 		  c_rr_arbiter
 		    #(.num_ports(num_ports),
 		      .num_priorities(num_priorities),
-		      .mask_priorities(mask_priorities),
 		      .encode_state(encode_state),
 		      .reset_type(reset_type))
 		  rr_arb
@@ -130,7 +119,6 @@ module c_arbiter
 		  c_prefix_arbiter
 		    #(.num_ports(num_ports),
 		      .num_priorities(num_priorities),
-		      .mask_priorities(mask_priorities),
 		      .encode_state(encode_state),
 		      .reset_type(reset_type))
 		  prefix_arb
@@ -150,7 +138,6 @@ module c_arbiter
 		  c_matrix_arbiter
 		    #(.num_ports(num_ports),
 		      .num_priorities(num_priorities),
-		      .mask_priorities(mask_priorities),
 		      .reset_type(reset_type))
 		  matrix_arb
 		    (.clk(clk),

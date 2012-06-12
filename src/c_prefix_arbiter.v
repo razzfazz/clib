@@ -41,9 +41,6 @@ module c_prefix_arbiter
    // number of priority levels
    parameter num_priorities = 1;
    
-   // perform masking between priorities
-   parameter mask_priorities = 1;
-   
    // store priorities in encoded form
    parameter encode_state = 1;
    
@@ -211,39 +208,20 @@ module c_prefix_arbiter
 	      .data_in(gnt_intm_pr),
 	      .data_out(gnt_intm));
 	   
-	   if(mask_priorities)
-	     begin
-		
-		wire [0:num_priorities*num_ports-1] gnt_mask_pr;
-		c_mat_mult
-		  #(.dim1_width(num_priorities),
-		    .dim2_width(1),
-		    .dim3_width(num_ports),
-		    .prod_op(`BINARY_OP_AND),
-		    .sum_op(`BINARY_OP_OR))
-		gnt_mask_pr_mmult
-		  (.input_a(sel_pr),
-		   .input_b({num_ports{1'b1}}),
-		   .result(gnt_mask_pr));
-		
-		assign gnt_pr = gnt_intm_pr & gnt_mask_pr;
-		assign gnt = gnt_intm;
-		
-	     end
-	   else
-	     begin
-		
-		assign gnt_pr = gnt_intm_pr;
-		
-		c_binary_op
-		  #(.num_ports(num_priorities),
-		    .width(num_ports),
-		    .op(`BINARY_OP_OR))
-		gnt_or
-		  (.data_in(gnt_intm_pr),
-		   .data_out(gnt));
-		
-	     end
+	   wire [0:num_priorities*num_ports-1] gnt_mask_pr;
+	   c_mat_mult
+	     #(.dim1_width(num_priorities),
+	       .dim2_width(1),
+	       .dim3_width(num_ports),
+	       .prod_op(`BINARY_OP_AND),
+	       .sum_op(`BINARY_OP_OR))
+	   gnt_mask_pr_mmult
+	     (.input_a(sel_pr),
+	      .input_b({num_ports{1'b1}}),
+	      .result(gnt_mask_pr));
+	   
+	   assign gnt_pr = gnt_intm_pr & gnt_mask_pr;
+	   assign gnt = gnt_intm;
 	   
 	end
       

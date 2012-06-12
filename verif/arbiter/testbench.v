@@ -58,7 +58,6 @@ module testbench
    c_arbiter
      #(.num_ports(num_ports),
        .num_priorities(1),
-       .mask_priorities(1),
        .arbiter_type(arbiter_type),
        .reset_type(reset_type))
    dut
