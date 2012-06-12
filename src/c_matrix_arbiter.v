@@ -63,183 +63,155 @@ module c_matrix_arbiter
    // update port priorities
    input 				 update;
    
+   wire [0:num_priorities*num_ports-1] 	 gnt_intm_pr;
+   wire [0:num_ports-1] 		 gnt_intm;
+   
+   // port priority matrix
+   wire [0:num_ports*num_ports-1] 	 state;
+   
+   genvar 				 row;
+   
    generate
       
-      if(num_ports == 1)
+      for(row = 0; row < num_ports; row = row + 1)
+	begin:rows
+	   
+	   genvar prio;
+	   
+	   for(prio = 0; prio < num_priorities; prio = prio + 1)
+	     begin:prios
+		
+		// grant requests if we have precedence over all other 
+		// requestors
+		assign gnt_intm_pr[prio*num_ports+row] 
+		  = req_pr[prio*num_ports+row] &
+		    (&(state[row*num_ports:(row+1)*num_ports-1] | 
+		       ~req_pr[prio*num_ports:(prio+1)*num_ports-1]));
+		
+	     end
+	   
+	   genvar col;
+	   
+	   for(col = 0; col < num_ports; col = col + 1)
+	     begin:cols
+		
+		// lower triangle has inverted values of transposed upper 
+		// triangle
+		if(col < row)
+		  assign state[row*num_ports+col] = ~state[col*num_ports+row];
+		
+		// diagonal has all ones
+		else if(col == row)
+		  assign state[row*num_ports+col] = 1'b1;
+		
+		// upper triangle has actual registers
+		else if(col > row)
+		  begin
+		     
+		     wire state_s, state_q;
+		     assign state_s
+		       = update ? 
+			 ((state_q | gnt_intm[col]) & ~gnt_intm[row]) : 
+			 state_q;
+		     c_dff
+		       #(.width(1),
+			 .reset_type(reset_type),
+			 .reset_value(1'b1))
+		     stateq
+		       (.clk(clk),
+			.reset(reset),
+			.active(active),
+			.d(state_s),
+			.q(state_q));
+		     
+		     assign state[row*num_ports+col] = state_q;
+		     
+		  end
+		
+	     end
+	   
+	end
+      
+      if(num_priorities == 1)
+	begin
+	   assign gnt_intm = gnt_intm_pr;
+	   assign gnt_pr = gnt_intm_pr;
+	   assign gnt = gnt_intm;
+	end
+      else if(num_priorities > 1)
 	begin
 	   
-	   if(mask_priorities)
+	   wire [0:num_priorities-1] sel_pr;
+	   
+	   if(num_priorities == 2)
+	     assign sel_pr = {|req_pr[0:num_ports-1], ~|req_pr[0:num_ports-1]};
+	   else if(num_priorities > 2)
 	     begin
+		
+		wire [0:num_priorities-1] valid_pr;
+		c_mat_mult
+		  #(.dim1_width(num_priorities),
+		    .dim2_width(num_ports),
+		    .dim3_width(1),
+		    .prod_op(`BINARY_OP_AND),
+		    .sum_op(`BINARY_OP_OR))
+		valid_pr_mmult
+		  (.input_a(req_pr),
+		   .input_b({num_ports{1'b1}}),
+		   .result(valid_pr));
+		
+		wire [0:num_priorities-1] any_req_pr;
+		assign any_req_pr = {valid_pr[0:num_priorities-2], 1'b1};
 		
 		c_lod
 		  #(.width(num_priorities),
 		    .num_priorities(1))
-		gnt_lod
-		  (.data_in_pr(req_pr),
-		   .data_out_pr(gnt_pr),
+		sel_pr_lod
+		  (.data_in_pr(any_req_pr),
+		   .data_out_pr(sel_pr),
 		   .data_out());
 		
 	     end
-	   else
-	     assign gnt_pr = req_pr;
 	   
-	   assign gnt = |req_pr;
+	   c_select_1ofn
+	     #(.num_ports(num_priorities),
+	       .width(num_ports))
+	   gnt_intm_sel
+	     (.select(sel_pr),
+	      .data_in(gnt_intm_pr),
+	      .data_out(gnt_intm));
 	   
-	end
-      else if(num_ports > 1)
-	begin
-	   
-	   wire [0:num_priorities*num_ports-1] gnt_intm_pr;
-	   wire [0:num_ports-1] 	       gnt_intm;
-	   
-	   // port priority matrix
-	   wire [0:num_ports*num_ports-1] state;
-	   
-	   genvar 			  row;
-	   
-	   for(row = 0; row < num_ports; row = row + 1)
-	     begin:rows
-		
-		genvar prio;
-		
-		for(prio = 0; prio < num_priorities; prio = prio + 1)
-		  begin:prios
-		     
-		     // grant requests if we have precedence over all other 
-		     // requestors
-		     assign gnt_intm_pr[prio*num_ports+row] 
-		       = req_pr[prio*num_ports+row] &
-			 (&(state[row*num_ports:(row+1)*num_ports-1] | 
-			    ~req_pr[prio*num_ports:(prio+1)*num_ports-1]));
-		     
-		  end
-		
-		genvar col;
-		
-		for(col = 0; col < num_ports; col = col + 1)
-		  begin:cols
-		     
-		     // lower triangle has inverted values of transposed upper 
-		     // triangle
-		     if(col < row)
-		       assign state[row*num_ports+col]
-			 = ~state[col*num_ports+row];
-		     
-		     // diagonal has all ones
-		     else if(col == row)
-		       assign state[row*num_ports+col] = 1'b1;
-		     
-		     // upper triangle has actual registers
-		     else if(col > row)
-		       begin
-			  
-			  wire state_s, state_q;
-			  assign state_s
-			    = update ? 
-			      ((state_q | gnt_intm[col]) & ~gnt_intm[row]) : 
-			      state_q;
-			  c_dff
-			    #(.width(1),
-			      .reset_type(reset_type),
-			      .reset_value(1'b1))
-			  stateq
-			    (.clk(clk),
-			     .reset(reset),
-			     .active(active),
-			     .d(state_s),
-			     .q(state_q));
-			  
-			  assign state[row*num_ports+col] = state_q;
-			  
-		       end
-		     
-		  end
-		
-	     end
-	   
-	   if(num_priorities == 1)
+	   if(mask_priorities)
 	     begin
-		assign gnt_intm = gnt_intm_pr;
-		assign gnt_pr = gnt_intm_pr;
+		
+		wire [0:num_priorities*num_ports-1] gnt_mask_pr;
+		c_mat_mult
+		  #(.dim1_width(num_priorities),
+		    .dim2_width(1),
+		    .dim3_width(num_ports),
+		    .prod_op(`BINARY_OP_AND),
+		    .sum_op(`BINARY_OP_OR))
+		gnt_mask_pr_mmult
+		  (.input_a(sel_pr),
+		   .input_b({num_ports{1'b1}}),
+		   .result(gnt_mask_pr));
+		
+		assign gnt_pr = gnt_intm_pr & gnt_mask_pr;
 		assign gnt = gnt_intm;
+		
 	     end
-	   else if(num_priorities > 1)
+	   else
 	     begin
 		
-		wire [0:num_priorities-1] sel_pr;
+		assign gnt_pr = gnt_intm_pr;
 		
-		if(num_priorities == 2)
-		  assign sel_pr
-		    = {|req_pr[0:num_ports-1], ~|req_pr[0:num_ports-1]};
-		else if(num_priorities > 2)
-		  begin
-		     
-		     wire [0:num_priorities-1] valid_pr;
-		     c_mat_mult
-		       #(.dim1_width(num_priorities),
-			 .dim2_width(num_ports),
-			 .dim3_width(1),
-			 .prod_op(`BINARY_OP_AND),
-			 .sum_op(`BINARY_OP_OR))
-		     valid_pr_mmult
-		       (.input_a(req_pr),
-			.input_b({num_ports{1'b1}}),
-			.result(valid_pr));
-		     
-		     wire [0:num_priorities-1] any_req_pr;
-		     assign any_req_pr = {valid_pr[0:num_priorities-2], 1'b1};
-		     
-		     c_lod
-		       #(.width(num_priorities),
-			 .num_priorities(1))
-		     sel_pr_lod
-		       (.data_in_pr(any_req_pr),
-			.data_out_pr(sel_pr),
-			.data_out());
-		     
-		  end
-		
-		c_select_1ofn
+		c_binary_op
 		  #(.num_ports(num_priorities),
-		    .width(num_ports))
-		gnt_intm_sel
-		  (.select(sel_pr),
-		   .data_in(gnt_intm_pr),
-		   .data_out(gnt_intm));
-		
-		if(mask_priorities)
-		  begin
-		     
-		     wire [0:num_priorities*num_ports-1] gnt_mask_pr;
-		     c_mat_mult
-		       #(.dim1_width(num_priorities),
-			 .dim2_width(1),
-			 .dim3_width(num_ports),
-			 .prod_op(`BINARY_OP_AND),
-			 .sum_op(`BINARY_OP_OR))
-		     gnt_mask_pr_mmult
-		       (.input_a(sel_pr),
-			.input_b({num_ports{1'b1}}),
-			.result(gnt_mask_pr));
-		     
-		     assign gnt_pr = gnt_intm_pr & gnt_mask_pr;
-		     assign gnt = gnt_intm;
-		     
-		  end
-		else
-		  begin
-		     
-		     assign gnt_pr = gnt_intm_pr;
-		     
-		     c_binary_op
-		       #(.num_ports(num_priorities),
-			 .width(num_ports),
-			 .op(`BINARY_OP_OR))
-		     gnt_or
-		       (.data_in(gnt_intm_pr),
-			.data_out(gnt));
-		     
-		  end
+		    .width(num_ports),
+		    .op(`BINARY_OP_OR))
+		gnt_or
+		  (.data_in(gnt_intm_pr),
+		   .data_out(gnt));
 		
 	     end
 	   

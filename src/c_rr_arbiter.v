@@ -70,215 +70,188 @@ module c_rr_arbiter
    // update port priorities
    input 				 update;
    
+   wire [0:num_priorities*num_ports-1] 	 gnt_intm_pr;
+   wire [0:num_ports-1] 		 gnt_intm;
+   
+   wire [0:num_ports-1] 		 mask;
+   
+   genvar 				 prio;
+   
    generate
       
-      if(num_ports == 1)
+      for(prio = 0; prio < num_priorities; prio = prio + 1)
+	begin:prios
+	   
+	   wire [0:num_ports-1] req;
+	   assign req = req_pr[prio*num_ports:(prio+1)*num_ports-1];
+	   
+	   wire [0:num_ports-1] req_unqual;
+	   assign req_unqual = req;
+	   
+	   wire [0:num_ports-1] req_qual;
+	   assign req_qual = req & mask;
+	   
+	   wire [0:num_ports-1] gnt;
+	   c_lod
+	     #(.width(num_ports),
+	       .num_priorities(2),
+	       .mask_priorities(1))
+	   gnt_lod
+	     (.data_in_pr({req_qual, req_unqual}),
+	      .data_out_pr(),
+	      .data_out(gnt));
+	   
+	   assign gnt_intm_pr[prio*num_ports:(prio+1)*num_ports-1] = gnt;
+	   
+	end
+      
+      if(encode_state)
 	begin
 	   
-	   if(mask_priorities)
+	   wire [0:state_width-1] next_state;
+	   c_encode
+	     #(.num_ports(num_ports),
+	       .offset(1))
+	   next_state_enc
+	     (.data_in(gnt),
+	      .data_out(next_state));
+	   
+	   wire [0:state_width-1] state_s, state_q;
+	   assign state_s = update ? next_state : state_q;
+	   c_dff
+	     #(.width(state_width),
+	       .reset_type(reset_type))
+	   stateq
+	     (.clk(clk),
+	      .reset(reset),
+	      .active(active),
+	      .d(state_s),
+	      .q(state_q));
+	   
+	   wire [0:num_ports-1]   state_therm;
+	   c_decode
+	     #(.num_ports(num_ports),
+	       .therm_enc(1))
+	   state_therm_dec
+	     (.data_in(state_q),
+	      .data_out(state_therm));
+	   
+	   assign mask = {1'b0, state_therm[0:num_ports-2]};
+	   
+	end
+      else
+	begin
+	   
+	   wire [0:num_ports-2] gnt_shifted;
+	   assign gnt_shifted = gnt[1:num_ports-1];
+	   
+	   wire [0:num_ports-2] next_mask;
+	   c_one_hot_therm_conv
+	     #(.width(num_ports-1))
+	   next_mask_ohtc
+	     (.data_in(gnt_shifted),
+	      .data_out(next_mask));
+	   
+	   wire [0:num_ports-2] mask_s, mask_q;
+	   assign mask_s = update ? next_mask : mask_q;
+	   c_dff
+	     #(.width(num_ports-1),
+	       .reset_type(reset_type))
+	   maskq
+	     (.clk(clk),
+	      .reset(reset),
+	      .active(active),
+	      .d(mask_s),
+	      .q(mask_q));
+	   
+	   assign mask = {1'b0, mask_q};
+	   
+	end
+      
+      if(num_priorities == 1)
+	begin
+	   assign gnt_intm = gnt_intm_pr;
+	   assign gnt_pr = gnt_intm_pr;
+	   assign gnt = gnt_intm;
+	end
+      else if(num_priorities > 1)
+	begin
+	   
+	   wire [0:num_priorities-1] sel_pr;
+	   
+	   if(num_priorities == 2)
+	     assign sel_pr = {|req_pr[0:num_ports-1], ~|req_pr[0:num_ports-1]};
+	   else if(num_priorities > 2)
 	     begin
+		
+		wire [0:num_priorities-1] valid_pr;
+		c_mat_mult
+		  #(.dim1_width(num_priorities),
+		    .dim2_width(num_ports),
+		    .dim3_width(1),
+		    .prod_op(`BINARY_OP_AND),
+		    .sum_op(`BINARY_OP_OR))
+		valid_pr_mmult
+		  (.input_a(req_pr),
+		   .input_b({num_ports{1'b1}}),
+		   .result(valid_pr));
+		
+		wire [0:num_priorities-1] any_req_pr;
+		assign any_req_pr = {valid_pr[0:num_priorities-2], 1'b1};
 		
 		c_lod
 		  #(.width(num_priorities),
 		    .num_priorities(1))
-		gnt_lod
-		  (.data_in_pr(req_pr),
-		   .data_out_pr(gnt_pr),
+		sel_pr_lod
+		  (.data_in_pr(any_req_pr),
+		   .data_out_pr(sel_pr),
 		   .data_out());
 		
 	     end
+	   
+	   c_select_1ofn
+	     #(.num_ports(num_priorities),
+	       .width(num_ports))
+	   gnt_intm_sel
+	     (.select(sel_pr),
+	      .data_in(gnt_intm_pr),
+	      .data_out(gnt_intm));
+	   
+	   if(mask_priorities)
+	     begin
+		
+		wire [0:num_priorities*num_ports-1] gnt_mask_pr;
+		c_mat_mult
+		  #(.dim1_width(num_priorities),
+		    .dim2_width(1),
+		    .dim3_width(num_ports),
+		    .prod_op(`BINARY_OP_AND),
+		    .sum_op(`BINARY_OP_OR))
+		gnt_mask_pr_mmult
+		  (.input_a(sel_pr),
+		   .input_b({num_ports{1'b1}}),
+		   .result(gnt_mask_pr));
+		
+		assign gnt_pr = gnt_intm_pr & gnt_mask_pr;
+		assign gnt = gnt_intm;
+		
+	     end
 	   else
-	     assign gnt_pr = req_pr;
-	   
-	   assign gnt = |req_pr;
-	   
-	end
-      else if(num_ports > 1)
-	begin
-	   
-	   wire [0:num_priorities*num_ports-1] gnt_intm_pr;
-	   wire [0:num_ports-1] 	       gnt_intm;
-	   
-	   wire [0:num_ports-1] 	       mask;
-	   
-	   genvar 			       prio;
-	   
-	   for(prio = 0; prio < num_priorities; prio = prio + 1)
-	     begin:prios
+	     begin
 		
-		wire [0:num_ports-1] req;
-		assign req = req_pr[prio*num_ports:(prio+1)*num_ports-1];
-
-		wire [0:num_ports-1] req_unqual;
-		assign req_unqual = req;
+		assign gnt_pr = gnt_intm_pr;
 		
-		wire [0:num_ports-1] req_qual;
-		assign req_qual = req & mask;
-		
-		wire [0:num_ports-1] gnt;
-		c_lod
-		  #(.width(num_ports),
-		    .num_priorities(2),
-		    .mask_priorities(1))
-		gnt_lod
-		  (.data_in_pr({req_qual, req_unqual}),
-		   .data_out_pr(),
+		c_binary_op
+		  #(.num_ports(num_priorities),
+		    .width(num_ports),
+		    .op(`BINARY_OP_OR))
+		gnt_or
+		  (.data_in(gnt_intm_pr),
 		   .data_out(gnt));
 		
-		assign gnt_intm_pr[prio*num_ports:(prio+1)*num_ports-1] = gnt;
-		
 	     end
 	   
-	   if(encode_state)
-	     begin
-		
-		wire [0:state_width-1] next_state;
-		c_encode
-		  #(.num_ports(num_ports),
-		    .offset(1))
-		next_state_enc
-		  (.data_in(gnt),
-		   .data_out(next_state));
-		
-		wire [0:state_width-1] state_s, state_q;
-		assign state_s = update ? next_state : state_q;
-		c_dff
-		  #(.width(state_width),
-		    .reset_type(reset_type))
-		stateq
-		  (.clk(clk),
-		   .reset(reset),
-		   .active(active),
-		   .d(state_s),
-		   .q(state_q));
-		
-		wire [0:num_ports-1]   state_therm;
-		c_decode
-		  #(.num_ports(num_ports),
-		    .therm_enc(1))
-		state_therm_dec
-		  (.data_in(state_q),
-		   .data_out(state_therm));
-		
-		assign mask = {1'b0, state_therm[0:num_ports-2]};
-		
-	     end
-	   else
-	     begin
-		
-		wire [0:num_ports-2] gnt_shifted;
-		assign gnt_shifted = gnt[1:num_ports-1];
-		
-		wire [0:num_ports-2] next_mask;
-		c_one_hot_therm_conv
-		  #(.width(num_ports-1))
-		next_mask_ohtc
-		  (.data_in(gnt_shifted),
-		   .data_out(next_mask));
-		
-		wire [0:num_ports-2] mask_s, mask_q;
-		assign mask_s = update ? next_mask : mask_q;
-		c_dff
-		  #(.width(num_ports-1),
-		    .reset_type(reset_type))
-		maskq
-		  (.clk(clk),
-		   .reset(reset),
-		   .active(active),
-		   .d(mask_s),
-		   .q(mask_q));
-		
-		assign mask = {1'b0, mask_q};
-		
-	     end
-	   
-	   if(num_priorities == 1)
-	     begin
-		assign gnt_intm = gnt_intm_pr;
-		assign gnt_pr = gnt_intm_pr;
-		assign gnt = gnt_intm;
-	     end
-	   else if(num_priorities > 1)
-	     begin
-		
-		wire [0:num_priorities-1] sel_pr;
-		
-		if(num_priorities == 2)
-		  assign sel_pr
-		    = {|req_pr[0:num_ports-1], ~|req_pr[0:num_ports-1]};
-		else if(num_priorities > 2)
-		  begin
-		     
-		     wire [0:num_priorities-1] valid_pr;
-		     c_mat_mult
-		       #(.dim1_width(num_priorities),
-			 .dim2_width(num_ports),
-			 .dim3_width(1),
-			 .prod_op(`BINARY_OP_AND),
-			 .sum_op(`BINARY_OP_OR))
-		     valid_pr_mmult
-		       (.input_a(req_pr),
-			.input_b({num_ports{1'b1}}),
-			.result(valid_pr));
-		     
-		     wire [0:num_priorities-1] any_req_pr;
-		     assign any_req_pr = {valid_pr[0:num_priorities-2], 1'b1};
-		     
-		     c_lod
-		       #(.width(num_priorities),
-			 .num_priorities(1))
-		     sel_pr_lod
-		       (.data_in_pr(any_req_pr),
-			.data_out_pr(sel_pr),
-			.data_out());
-		     
-		  end
-		
-		c_select_1ofn
-		  #(.num_ports(num_priorities),
-		    .width(num_ports))
-		gnt_intm_sel
-		  (.select(sel_pr),
-		   .data_in(gnt_intm_pr),
-		   .data_out(gnt_intm));
-		
-		if(mask_priorities)
-		  begin
-		     
-		     wire [0:num_priorities*num_ports-1] gnt_mask_pr;
-		     c_mat_mult
-		       #(.dim1_width(num_priorities),
-			 .dim2_width(1),
-			 .dim3_width(num_ports),
-			 .prod_op(`BINARY_OP_AND),
-			 .sum_op(`BINARY_OP_OR))
-		     gnt_mask_pr_mmult
-		       (.input_a(sel_pr),
-			.input_b({num_ports{1'b1}}),
-			.result(gnt_mask_pr));
-		     
-		     assign gnt_pr = gnt_intm_pr & gnt_mask_pr;
-		     assign gnt = gnt_intm;
-		     
-		  end
-		else
-		  begin
-		     
-		     assign gnt_pr = gnt_intm_pr;
-		     
-		     c_binary_op
-		       #(.num_ports(num_priorities),
-			 .width(num_ports),
-			 .op(`BINARY_OP_OR))
-		     gnt_or
-		       (.data_in(gnt_intm_pr),
-			.data_out(gnt));
-		     
-		  end
-		
-	     end
-	   
-	end	
+	end
       
    endgenerate
    
