@@ -32,7 +32,6 @@
 module c_lod
   (data_in, data_out);
    
-`include "c_constants.v"
 `include "c_functions.v"
    
    // number of input ports
