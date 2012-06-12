@@ -133,6 +133,59 @@ module c_prefix_arbiter
 		
 	     end
 	   
+	   if(encode_state)
+	     begin
+		
+		wire [0:state_width-1] next_state;
+		c_encode
+		  #(.num_ports(num_ports),
+		    .offset(1))
+		next_state_enc
+		  (.data_in(gnt),
+		   .data_out(next_state));
+		
+		wire [0:state_width-1] state_s, state_q;
+		assign state_s = update ? next_state : state_q;
+		c_dff
+		  #(.width(state_width),
+		    .reset_type(reset_type))
+		stateq
+		  (.clk(clk),
+		   .reset(reset),
+		   .active(active),
+		   .d(state_s),
+		   .q(state_q));
+		
+		c_decode
+		  #(.num_ports(num_ports))
+		prio_port_dec
+		  (.data_in(state_q),
+		   .data_out(prio_port));
+		
+	     end
+	   else
+	     begin
+		
+		wire [0:num_ports-1] next_prio;
+		assign next_prio = {gnt[num_ports-1], gnt[0:num_ports-2]};
+		
+		wire [0:num_ports-1] prio_s, prio_q;
+		assign prio_s = update ? next_prio : prio_q;
+		c_dff
+		  #(.width(num_ports),
+		    .reset_value({1'b1, {(num_ports-1){1'b0}}}),
+		    .reset_type(reset_type))
+		prioq
+		  (.clk(clk),
+		   .reset(reset),
+		   .active(active),
+		   .d(prio_s),
+		   .q(prio_q));
+		
+		assign prio_port = prio_q;
+		
+	     end
+	   
 	   if(num_priorities == 1)
 	     begin
 		assign gnt_intm = gnt_intm_pr;
@@ -216,59 +269,6 @@ module c_prefix_arbiter
 			.data_out(gnt));
 		     
 		  end
-		
-	     end
-	   
-	   if(encode_state)
-	     begin
-		
-		wire [0:state_width-1] next_state;
-		c_encode
-		  #(.num_ports(num_ports),
-		    .offset(1))
-		next_state_enc
-		  (.data_in(gnt),
-		   .data_out(next_state));
-		
-		wire [0:state_width-1] state_s, state_q;
-		assign state_s = update ? next_state : state_q;
-		c_dff
-		  #(.width(state_width),
-		    .reset_type(reset_type))
-		stateq
-		  (.clk(clk),
-		   .reset(reset),
-		   .active(active),
-		   .d(state_s),
-		   .q(state_q));
-		
-		c_decode
-		  #(.num_ports(num_ports))
-		prio_port_dec
-		  (.data_in(state_q),
-		   .data_out(prio_port));
-		
-	     end
-	   else
-	     begin
-		
-		wire [0:num_ports-1] next_prio;
-		assign next_prio = {gnt[num_ports-1], gnt[0:num_ports-2]};
-		
-		wire [0:num_ports-1] prio_s, prio_q;
-		assign prio_s = update ? next_prio : prio_q;
-		c_dff
-		  #(.width(num_ports),
-		    .reset_value({1'b1, {(num_ports-1){1'b0}}}),
-		    .reset_type(reset_type))
-		prioq
-		  (.clk(clk),
-		   .reset(reset),
-		   .active(active),
-		   .d(prio_s),
-		   .q(prio_q));
-		
-		assign prio_port = prio_q;
 		
 	     end
 	   
