@@ -29,7 +29,7 @@
 // rotate bit vector by given amount
 //==============================================================================
 
-module c_rotator
+module c_rotate
   (amount, data_in, data_out);
    
 `include "c_functions.v"
