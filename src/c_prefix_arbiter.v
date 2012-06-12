@@ -81,25 +81,13 @@ module c_prefix_arbiter
 	   wire [0:num_ports-1] req;
 	   assign req = req_pr[prio*num_ports:(prio+1)*num_ports-1];
 	   
-	   wire [0:num_ports-1] g_in;
-	   assign g_in = prio_port;
-	   
-	   wire [0:num_ports-1] p_in;
-	   assign p_in = ~{req[num_ports-1], req[0:num_ports-2]};
-	   
-	   wire [0:num_ports-1] g_out;
-	   wire [0:num_ports-1] p_out;
-	   c_prefix_net
-	     #(.width(num_ports),
-	       .enable_wraparound(1))
-	   g_out_pn
-	     (.g_in(g_in),
-	      .p_in(p_in),
-	      .g_out(g_out),
-	      .p_out(p_out));
-	   
 	   wire [0:num_ports-1] gnt;
-	   assign gnt = req & g_out;
+	   c_prefix_arbiter_base
+	     #(.num_ports(num_ports))
+	   gnt_ab
+	     (.prio_port(prio_port),
+	      .req(req),
+	      .gnt(gnt));
 	   
 	   assign gnt_intm_pr[prio*num_ports:(prio+1)*num_ports-1] = gnt;
 	   
