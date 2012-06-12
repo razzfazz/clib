@@ -74,8 +74,7 @@ module c_matrix_arbiter
 	   gnt_lod
 	     (.data_in_pr(req_pr),
 	      .data_out_pr(gnt_pr),
-	      .data_out(),
-	      .mask_out());
+	      .data_out());
 	   
 	   assign gnt = |req_pr;
 	   
@@ -189,8 +188,7 @@ module c_matrix_arbiter
 		     sel_pr_lod
 		       (.data_in_pr(any_req_pr),
 			.data_out_pr(sel_pr),
-			.data_out(),
-			.mask_out());
+			.data_out());
 		     
 		  end
 		

@@ -84,8 +84,7 @@ module c_rr_arbiter
 		gnt_lod
 		  (.data_in_pr(req_pr),
 		   .data_out_pr(gnt_pr),
-		   .data_out(),
-		   .mask_out());
+		   .data_out());
 		
 	     end
 	   else
@@ -134,7 +133,6 @@ module c_rr_arbiter
 	     end
 	   
 	   wire [0:num_ports-1]      gnt_intm;
-	   wire [0:num_ports-1]      next_mask;
 	   c_lod
 	     #(.width(num_ports),
 	       .num_priorities(num_priorities*2),
@@ -142,8 +140,7 @@ module c_rr_arbiter
 	   gnt_lod
 	     (.data_in_pr(req_exp),
 	      .data_out_pr(gnt_exp),
-	      .data_out(gnt_intm),
-	      .mask_out(next_mask));
+	      .data_out(gnt_intm));
 	   
 	   if(mask_priorities || (num_priorities == 1))
 	     assign gnt = gnt_intm;
@@ -197,8 +194,18 @@ module c_rr_arbiter
 	   else
 	     begin
 		
+		wire [0:num_ports-2] gnt_shifted;
+		assign gnt_shifted = gnt[1:num_ports-1];
+		
+		wire [0:num_ports-2] next_mask;
+		c_one_hot_therm_conv
+		  #(.width(num_ports-1))
+		next_mask_ohtc
+		  (.data_in(gnt_shifted),
+		   .data_out(next_mask));
+		
 		wire [0:num_ports-2] mask_s, mask_q;
-		assign mask_s = update ? next_mask[1:num_ports-1] : mask_q;
+		assign mask_s = update ? next_mask : mask_q;
 		c_dff
 		  #(.width(num_ports-1),
 		    .reset_type(reset_type))

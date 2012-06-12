@@ -84,8 +84,7 @@ module c_prefix_arbiter
 		gnt_lod
 		  (.data_in_pr(req_pr),
 		   .data_out_pr(gnt_pr),
-		   .data_out(),
-		   .mask_out());
+		   .data_out());
 		
 	     end
 	   else
@@ -106,8 +105,7 @@ module c_prefix_arbiter
 	   gnt_prio_lod
 	     (.data_in_pr(req_prio),
 	      .data_out_pr(gnt_prio),
-	      .data_out(),
-	      .mask_out());
+	      .data_out());
 	   
 	   wire [0:num_ports-1]      prio_port;
 	   

@@ -30,7 +30,7 @@
 //==============================================================================
 
 module c_lod
-  (data_in_pr, data_out_pr, data_out, mask_out);
+  (data_in_pr, data_out_pr, data_out);
    
 `include "c_constants.v"
    
@@ -54,12 +54,7 @@ module c_lod
    output [0:width-1] 		     data_out;
    wire [0:width-1] 		     data_out;
    
-   // merged vector of masked bits
-   output [0:width-1] 		     mask_out;
-   wire [0:width-1] 		     mask_out;
-   
    wire [0:num_priorities*width-1]   data_intm_pr;
-   wire [0:num_priorities*width-1]   mask_out_pr;
    
    genvar 			     prio;
    
@@ -72,13 +67,9 @@ module c_lod
 	   assign data_in = data_in_pr[prio*width:(prio+1)*width-1];
 	   
 	   wire [0:width-1] data_intm;
-	   wire [0:width-1] mask_out;
 	   
 	   if(width == 1)
-	     begin
-		assign data_intm = data_in;
-		assign mask_out = 1'b0;
-	     end
+	     assign data_intm = data_in;
 	   else
 	     begin
 		
@@ -104,19 +95,9 @@ module c_lod
 		  (.data_in(data_intm_rev),
 		   .data_out(data_intm));
 		
-		wire [0:width-1] mask_out_rev;
-		assign mask_out_rev = data_in_rev ^ data_in_rev_compl;
-		
-		c_reverse
-		  #(.width(width))
-		mask_out_revr
-		  (.data_in(mask_out_rev),
-		   .data_out(mask_out));
-		
 	     end
 	   
 	   assign data_intm_pr[prio*width:(prio+1)*width-1] = data_intm;
-	   assign mask_out_pr[prio*width:(prio+1)*width-1] = mask_out;
 	   
 	end
       
@@ -124,7 +105,6 @@ module c_lod
 	begin
 	   assign data_out = data_intm_pr;
 	   assign data_out_pr = data_intm_pr;
-	   assign mask_out = mask_out_pr;
 	end
       else if(num_priorities > 1)
 	begin
@@ -212,14 +192,6 @@ module c_lod
 		   .data_out(data_out));
 		
 	     end
-	   
-	   c_select_1ofn
-	     #(.num_ports(num_priorities),
-	       .width(width))
-	   mask_out_sel
-	     (.select(sel_pr),
-	      .data_in(mask_out_pr),
-	      .data_out(mask_out));
 	   
 	end
       
