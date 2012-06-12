@@ -81,20 +81,32 @@ module c_rr_arbiter
 	   wire [0:num_ports-1] req;
 	   assign req = req_pr[prio*num_ports:(prio+1)*num_ports-1];
 	   
-	   wire [0:num_ports-1] req_unqual;
-	   assign req_unqual = req;
-	   
 	   wire [0:num_ports-1] req_qual;
 	   assign req_qual = req & mask;
 	   
-	   wire [0:num_ports-1] gnt;
+	   wire [0:num_ports-1] gnt_qual;
 	   c_lod
 	     #(.width(num_ports),
-	       .num_priorities(2))
-	   gnt_lod
-	     (.data_in_pr({req_qual, req_unqual}),
-	      .data_out_pr(),
-	      .data_out(gnt));
+	       .num_priorities(1))
+	   gnt_qual_lod
+	     (.data_in_pr(req_qual),
+	      .data_out_pr(gnt_qual),
+	      .data_out());
+	   
+	   wire [0:num_ports-1] req_unqual;
+	   assign req_unqual = req;
+	   
+	   wire [0:num_ports-1] gnt_unqual;
+	   c_lod
+	     #(.width(num_ports),
+	       .num_priorities(1))
+	   gnt_unqual_lod
+	     (.data_in_pr(req_unqual),
+	      .data_out_pr(gnt_unqual),
+	      .data_out());
+	   
+	   wire [0:num_ports-1] gnt;
+	   assign gnt = (|req_qual) ? gnt_qual : gnt_unqual;
 	   
 	   assign gnt_intm_pr[prio*num_ports:(prio+1)*num_ports-1] = gnt;
 	   
