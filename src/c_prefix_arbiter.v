@@ -159,12 +159,10 @@ module c_prefix_arbiter
    
    wire [0:num_priorities-1] 	sel_pr;
    c_lod
-     #(.width(num_priorities),
-       .num_priorities(1))
+     #(.width(num_priorities))
    sel_pr_lod
-     (.data_in_pr(any_req_pr),
-      .data_out_pr(sel_pr),
-      .data_out());
+     (.data_in(any_req_pr),
+      .data_out(sel_pr));
    
    c_gate_bits
      #(.num_ports(num_priorities),

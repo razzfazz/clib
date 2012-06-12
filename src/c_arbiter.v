@@ -78,12 +78,10 @@ module c_arbiter
 	begin
 	   
 	   c_lod
-	     #(.width(num_priorities),
-	       .num_priorities(1))
+	     #(.width(num_priorities))
 	   gnt_lod
-	     (.data_in_pr(req_pr),
-	      .data_out_pr(gnt_pr),
-	      .data_out());
+	     (.data_in(req_pr),
+	      .data_out(gnt_pr));
 	   
 	   assign gnt = |req_pr;
 	   

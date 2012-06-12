@@ -30,149 +30,62 @@
 //==============================================================================
 
 module c_lod
-  (data_in_pr, data_out_pr, data_out);
+  (data_in, data_out);
    
 `include "c_constants.v"
+`include "c_functions.v"
    
    // number of input ports
    parameter width = 32;
    
-   // number of priority levels
-   parameter num_priorities = 1;
+   // number of stages
+   localparam depth = clogb(width);
    
    // vector of requests
-   input [0:num_priorities*width-1] data_in_pr;
+   input [0:width-1] data_in;
    
    // vector of grants
-   output [0:num_priorities*width-1] data_out_pr;
-   wire [0:num_priorities*width-1]   data_out_pr;
+   output [0:width-1] data_out;
+   wire [0:width-1]   data_out;
    
-   // merged vector of grants
-   output [0:width-1] 		     data_out;
-   wire [0:width-1] 		     data_out;
+   genvar 	      level;
    
-   wire [0:num_priorities*width-1]   data_intm_pr;
+   wire [0:(depth+1)*width-1] a_int;
+   wire [0:(depth+1)*width-1] b_int;
    
-   genvar 			     prio;
+   assign a_int[0:width-1] = data_in;
+   assign b_int[0:width-1] = data_in;
    
    generate
       
-      for(prio = 0; prio < num_priorities; prio = prio + 1)
-	begin:prios
+      for(level = 0; level < depth; level = level + 1)
+	begin:levels
 	   
-	   wire [0:width-1] data_in;
-	   assign data_in = data_in_pr[prio*width:(prio+1)*width-1];
+	   wire [0:width-1] a_in;
+	   assign a_in = a_int[level*width:(level+1)*width-1];
 	   
-	   wire [0:width-1] data_intm;
+	   wire [0:width-1] b_in;
+	   assign b_in = b_int[level*width:(level+1)*width-1];
 	   
-	   if(width == 1)
-	     assign data_intm = data_in;
-	   else
-	     begin
-		
-		// To find the first non-zero bit from the left, we must 
-		// reverse the input and output vectors.
-		
-		wire [0:width-1] data_in_rev;
-		c_reverse
-		  #(.width(width))
-		data_in_rev_revr
-		  (.data_in(data_in),
-		   .data_out(data_in_rev));
-		
-		wire [0:width-1] data_in_rev_compl;
-		assign data_in_rev_compl = -data_in_rev;
-		
-		wire [0:width-1] data_intm_rev;
-		assign data_intm_rev = data_in_rev & data_in_rev_compl;
-		
-		c_reverse
-		  #(.width(width))
-		data_intm_revr
-		  (.data_in(data_intm_rev),
-		   .data_out(data_intm));
-		
-	     end
+	   wire [0:width-1] a_shifted;
+	   assign a_shifted = {{(1<<level){1'b0}}, a_in[0:width-(1<<level)-1]};
 	   
-	   assign data_intm_pr[prio*width:(prio+1)*width-1] = data_intm;
+	   wire [0:width-1] b_shifted;
+	   assign b_shifted = {{(1<<level){1'b0}}, b_in[0:width-(1<<level)-1]};
 	   
-	end
-      
-      if(num_priorities == 1)
-	begin
-	   assign data_out = data_intm_pr;
-	   assign data_out_pr = data_intm_pr;
-	end
-      else if(num_priorities > 1)
-	begin
+	   wire [0:width-1] a_out;
+	   assign a_out = a_in | a_shifted;
 	   
-	   wire [0:num_priorities-1] sel_pr;
+	   wire [0:width-1] b_out;
+	   assign b_out = b_in & ~a_shifted;
 	   
-	   if(num_priorities == 2)
-	     assign sel_pr = {|data_in_pr[0:width-1], ~|data_in_pr[0:width-1]};
-	   else if(num_priorities > 2)
-	     begin
-		
-		wire [0:num_priorities-1] valid_pr;
-		c_mat_mult
-		  #(.dim1_width(num_priorities),
-		    .dim2_width(width),
-		    .dim3_width(1),
-		    .prod_op(`BINARY_OP_AND),
-		    .sum_op(`BINARY_OP_OR))
-		valid_pr_mmult
-		  (.input_a(data_in_pr),
-		   .input_b({width{1'b1}}),
-		   .result(valid_pr));
-		
-		wire [0:num_priorities-1] req_pr;
-		assign req_pr = {valid_pr[0:num_priorities-2], 1'b1};
-		
-		wire [0:num_priorities-1] req_pr_rev;
-		c_reverse
-		  #(.width(num_priorities))
-		req_pr_rev_revr
-		  (.data_in(req_pr),
-		   .data_out(req_pr_rev));
-		
-		wire [0:num_priorities-1] gnt_pr_rev;
-		assign gnt_pr_rev = req_pr_rev & -req_pr_rev;
-		
-		wire [0:num_priorities-1] gnt_pr;
-		c_reverse
-		  #(.width(num_priorities))
-		gnt_piro_rev_revr
-		  (.data_in(gnt_pr_rev),
-		   .data_out(gnt_pr));
-		
-		assign sel_pr = gnt_pr;
-		
-	     end
-	   
-	   wire [0:num_priorities*width-1] gnt_mask_pr;
-	   c_mat_mult
-	     #(.dim1_width(num_priorities),
-	       .dim2_width(1),
-	       .dim3_width(width),
-	       .prod_op(`BINARY_OP_AND),
-	       .sum_op(`BINARY_OP_OR))
-	   gnt_mask_pr_mmult
-	     (.input_a(sel_pr),
-	      .input_b({width{1'b1}}),
-	      .result(gnt_mask_pr));
-	   
-	   c_select_1ofn
-	     #(.num_ports(num_priorities),
-	       .width(width))
-	   data_out_sel
-	     (.select(sel_pr),
-	      .data_in(data_intm_pr),
-	      .data_out(data_out));
-	   
-	   assign data_out_pr = data_intm_pr & gnt_mask_pr;
+	   assign a_int[(level+1)*width:(level+2)*width-1] = a_out;
+	   assign b_int[(level+1)*width:(level+2)*width-1] = b_out;
 	   
 	end
       
    endgenerate
+   
+   assign data_out = b_int[depth*width:(depth+1)*width-1];
    
 endmodule
