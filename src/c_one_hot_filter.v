@@ -32,8 +32,13 @@
 module c_one_hot_filter
   (data_in, data_out);
    
+`include "c_functions.v"
+   
    // width of input vector
    parameter width = 8;
+   
+   // number of stages
+   localparam depth = clogb(width);
    
    // input data
    input [0:width-1] data_in;
@@ -42,31 +47,46 @@ module c_one_hot_filter
    output [0:width-1] data_out;
    wire [0:width-1]   data_out;
    
+   genvar 	      level;
+   
+   wire [0:(depth+1)*width-1] a_int;
+   wire [0:(depth+1)*width-1] b_int;
+   
+   assign a_int[0:width-1] = data_in;
+   assign b_int[0:width-1] = data_in;
+   
    generate
       
-      if(width == 1)
-	assign data_out = data_in;
-      else
-	begin
+      for(level = 0; level < depth; level = level + 1)
+	begin:levels
 	   
-	   genvar 		 pos;
+	   wire [0:width-1] a_in;
+	   assign a_in = a_int[level*width:(level+1)*width-1];
 	   
-	   for(pos = 0; pos < width; pos = pos + 1)
-	     begin:poss
-		
-		wire [0:(width-1)-1] others;
-		
-		if(pos > 0)
-		  assign others[0:pos-1] = data_in[0:pos-1];
-		if(pos < (width - 1))
-		  assign others[pos:(width-1)-1] = data_in[(pos+1):width-1];
-		
-		assign data_out[pos] = data_in[pos] & ~|others;
-		
-	     end
+	   wire [0:width-1] b_in;
+	   assign b_in = b_int[level*width:(level+1)*width-1];
+	   
+	   wire [0:width-1] a_shifted;
+	   assign a_shifted
+	     = {a_in[width-(1<<level):width-1], a_in[0:width-(1<<level)-1]};
+	   
+	   wire [0:width-1] b_shifted;
+	   assign b_shifted
+	     = {b_in[width-(1<<level):width-1], b_in[0:width-(1<<level)-1]};
+	   
+	   wire [0:width-1] a_out;
+	   assign a_out = a_in | a_shifted;
+	   
+	   wire [0:width-1] b_out;
+	   assign b_out = b_in & ~a_shifted;
+	   
+	   assign a_int[(level+1)*width:(level+2)*width-1] = a_out;
+	   assign b_int[(level+1)*width:(level+2)*width-1] = b_out;
 	   
 	end
       
    endgenerate
+   
+   assign data_out = b_int[depth*width:(depth+1)*width-1];
    
 endmodule
