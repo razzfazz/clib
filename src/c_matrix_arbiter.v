@@ -68,13 +68,20 @@ module c_matrix_arbiter
       if(num_ports == 1)
 	begin
 	   
-	   c_lod
-	     #(.width(num_priorities),
-	       .num_priorities(1))
-	   gnt_lod
-	     (.data_in_pr(req_pr),
-	      .data_out_pr(gnt_pr),
-	      .data_out());
+	   if(mask_priorities)
+	     begin
+		
+		c_lod
+		  #(.width(num_priorities),
+		    .num_priorities(1))
+		gnt_lod
+		  (.data_in_pr(req_pr),
+		   .data_out_pr(gnt_pr),
+		   .data_out());
+		
+	     end
+	   else
+	     assign gnt_pr = req_pr;
 	   
 	   assign gnt = |req_pr;
 	   
