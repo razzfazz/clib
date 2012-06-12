@@ -96,55 +96,57 @@ module c_rr_arbiter
       else if(num_ports > 1)
 	begin
 	   
-	   wire [0:num_ports-1] mask;
+	   wire [0:num_priorities-1] req_prio;
 	   
-	   wire [0:num_priorities*2*num_ports-1] req_exp;
-	   wire [0:num_priorities*2*num_ports-1] gnt_exp;
+	   wire [0:num_priorities-1] gnt_prio;
+	   c_lod
+	     #(.width(num_priorities),
+	       .num_priorities(1))
+	   gnt_prio_lod
+	     (.data_in_pr(req_prio),
+	      .data_out_pr(gnt_prio),
+	      .data_out());
 	   
-	   genvar 				 prio;
+	   wire [0:num_ports-1]      mask;
+	   
+	   genvar 		     prio;
 	   
 	   for(prio = 0; prio < num_priorities; prio = prio + 1)
 	     begin:prios
 		
+		wire [0:num_ports-1] req;
+		assign req = req_pr[prio*num_ports:(prio+1)*num_ports-1];
+
+		if(prio == num_priorities - 1)
+		  assign req_prio[prio] = 1'b1;
+		else
+		  assign req_prio[prio] = |req;
+		
 		wire [0:num_ports-1] req_unqual;
-		assign req_unqual = req_pr[prio*num_ports:(prio+1)*num_ports-1];
+		assign req_unqual = req;
 		
 		wire [0:num_ports-1] req_qual;
-		assign req_qual = req_unqual & mask;
+		assign req_qual = req & mask;
 		
-		assign req_exp[prio*2*num_ports:(prio+1)*2*num_ports-1]
-		  = {req_qual, req_unqual};
-		
-		wire [0:num_ports-1] gnt_qual;
-		assign gnt_qual
-		  = gnt_exp[prio*2*num_ports:(prio*2+1)*num_ports-1];
-		
-		wire [0:num_ports-1] gnt_unqual;
-		assign gnt_unqual
-		  = gnt_exp[(prio*2+1)*num_ports:(prio*2+2)*num_ports-1];
+		wire [0:num_ports-1] gnt;
+		c_lod
+		  #(.width(num_ports),
+		    .num_priorities(2),
+		    .mask_priorities(1))
+		gnt_lod
+		  (.data_in_pr({req_qual, req_unqual}),
+		   .data_out_pr(),
+		   .data_out(gnt));
 		
 		if(mask_priorities)
 		  assign gnt_pr[prio*num_ports:(prio+1)*num_ports-1]
-		    = gnt_qual | gnt_unqual;
+		    = {num_ports{gnt_prio[prio]}} & gnt;
 		else
-		  assign gnt_pr[prio*num_ports:(prio+1)*num_ports-1]
-		    = (|req_qual) ? gnt_qual : gnt_unqual;
+		  assign gnt_pr[prio*num_ports:(prio+1)*num_ports-1] = gnt;
 		
 	     end
 	   
-	   wire [0:num_ports-1]      gnt_intm;
-	   c_lod
-	     #(.width(num_ports),
-	       .num_priorities(num_priorities*2),
-	       .mask_priorities(mask_priorities))
-	   gnt_lod
-	     (.data_in_pr(req_exp),
-	      .data_out_pr(gnt_exp),
-	      .data_out(gnt_intm));
-	   
-	   if(mask_priorities || (num_priorities == 1))
-	     assign gnt = gnt_intm;
-	   else
+	   if(mask_priorities)
 	     begin
 		
 		c_binary_op
@@ -153,6 +155,18 @@ module c_rr_arbiter
 		    .op(`BINARY_OP_OR))
 		gnt_or
 		  (.data_in(gnt_pr),
+		   .data_out(gnt));
+		
+	     end
+	   else
+	     begin
+		
+		c_select_1ofn
+		  #(.num_ports(num_priorities),
+		    .width(num_ports))
+		gnt_sel
+		  (.select(gnt_prio),
+		   .data_in(gnt_pr),
 		   .data_out(gnt));
 		
 	     end
