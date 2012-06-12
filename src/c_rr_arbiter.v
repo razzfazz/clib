@@ -68,7 +68,6 @@ module c_rr_arbiter
    input 				 update;
    
    wire [0:num_priorities*num_ports-1] 	 gnt_intm_pr;
-   wire [0:num_ports-1] 		 gnt_intm;
    
    wire [0:num_ports-1] 		 mask;
    
@@ -166,9 +165,8 @@ module c_rr_arbiter
       
       if(num_priorities == 1)
 	begin
-	   assign gnt_intm = gnt_intm_pr;
 	   assign gnt_pr = gnt_intm_pr;
-	   assign gnt = gnt_intm;
+	   assign gnt = gnt_intm_pr;
 	end
       else if(num_priorities > 1)
 	begin
@@ -205,14 +203,6 @@ module c_rr_arbiter
 		
 	     end
 	   
-	   c_select_1ofn
-	     #(.num_ports(num_priorities),
-	       .width(num_ports))
-	   gnt_intm_sel
-	     (.select(sel_pr),
-	      .data_in(gnt_intm_pr),
-	      .data_out(gnt_intm));
-	   
 	   wire [0:num_priorities*num_ports-1] gnt_mask_pr;
 	   c_mat_mult
 	     #(.dim1_width(num_priorities),
@@ -226,7 +216,14 @@ module c_rr_arbiter
 	      .result(gnt_mask_pr));
 	   
 	   assign gnt_pr = gnt_intm_pr & gnt_mask_pr;
-	   assign gnt = gnt_intm;
+	   
+	   c_select_1ofn
+	     #(.num_ports(num_priorities),
+	       .width(num_ports))
+	   gnt_sel
+	     (.select(sel_pr),
+	      .data_in(gnt_intm_pr),
+	      .data_out(gnt));
 	   
 	end
       
