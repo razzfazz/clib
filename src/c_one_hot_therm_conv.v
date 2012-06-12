@@ -32,33 +32,47 @@
 module c_one_hot_therm_conv
   (data_in, data_out);
    
+`include "c_functions.v"
+   
    // number of input ports (i.e., decoded width)
-   parameter num_ports = 8;
+   parameter width = 8;
+   
+   // number of stages
+   localparam depth = clogb(width);
    
    // one-hot input data
-   input [0:num_ports-1] data_in;
+   input [0:width-1] data_in;
    
    // thermometer-style encoded output data
-   output [0:num_ports-1] data_out;
-   wire [0:num_ports-1]   data_out;
+   output [0:width-1] data_out;
+   wire [0:width-1]   data_out;
+   
+   genvar 	      level;
+   
+   wire [0:(depth+1)*width-1] data_int;
+   assign data_int[0:width-1] = data_in;
    
    generate
       
-      if(num_ports == 1)
-	assign data_out = data_in;
-      else if(num_ports > 1)
-	begin
+      for(level = 0; level < depth; level = level + 1)
+	begin:levels
 	   
-	   assign data_out[0] = data_in[0];
+	   wire [0:width-1] data_in;
+	   assign data_in = data_int[level*width:(level+1)*width-1];
 	   
-	   genvar idx;
-	   for(idx = 1; idx < num_ports; idx = idx + 1)
-	     begin:idxs
-		assign data_out[idx] = |data_in[0:idx];
-	     end
+	   wire [0:width-1] data_shifted;
+	   assign data_shifted
+	     = {{(1<<level){1'b0}}, data_in[0:width-(1<<level)-1]};
 	   
-        end
+	   wire [0:width-1] data_out;
+	   assign data_out = data_in | data_shifted;
+	   
+	   assign data_int[(level+1)*width:(level+2)*width-1] = data_out;
+	   
+	end
       
    endgenerate
+   
+   assign data_out = data_int[depth*width:(depth+1)*width-1];
    
 endmodule

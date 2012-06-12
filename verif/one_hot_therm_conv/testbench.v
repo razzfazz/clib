@@ -27,46 +27,46 @@
 
 `default_nettype none
 
-module testbench
-  #(parameter num_ports = 8,
-    parameter initial_seed = 0)
+  module testbench
+    #(parameter width = 8,
+      parameter initial_seed = 0)
    ();
-
-   reg [0:num_ports-1] data_in;
-   wire [0:num_ports-1] data_out;
+   
+   reg [0:width-1] data_in;
+   wire [0:width-1] data_out;
    
    c_one_hot_therm_conv
-     #(.num_ports(num_ports))
+     #(.width(width))
    dut
      (.data_in(data_in),
       .data_out(data_out));
    
-   integer 	       test;
-   integer 	       i;
+   integer 	    test;
+   integer 	    i;
    
-   reg [0:num_ports-1] data_ref;
+   reg [0:width-1]  data_ref;
    
    initial
-   begin
-
-      for(test = 0; test < num_ports; test = test + 1)
-	begin
-	   data_in = {num_ports{1'b0}};
-	   data_in[test] = 1'b1;
-	   data_ref = data_in;
-	   for(i = test + 1; i < num_ports; i = i + 1)
-	     data_ref[i] = 1'b1;
-	   #1;
-	   if(data_out != data_ref)
-	     $display("ERROR: in=%b, out=%b, expected=%b",
-		      data_in, data_out, data_ref);
-	   else
-	     $display("OK:    in=%b, out=%b", data_in, data_out);
-	   #1;
-	end
-      
-      $finish;
-      
-   end
+     begin
+	
+	for(test = 0; test < width; test = test + 1)
+	  begin
+	     data_in = {width{1'b0}};
+	     data_in[test] = 1'b1;
+	     data_ref = data_in;
+	     for(i = test + 1; i < width; i = i + 1)
+	       data_ref[i] = 1'b1;
+	     #1;
+	     if(data_out != data_ref)
+	       $display("ERROR: in=%b, out=%b, expected=%b",
+			data_in, data_out, data_ref);
+	     else
+	       $display("OK:    in=%b, out=%b", data_in, data_out);
+	     #1;
+	  end
+	
+	$finish;
+	
+     end
    
 endmodule
