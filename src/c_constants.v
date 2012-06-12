@@ -62,10 +62,7 @@
 // matrix arbiter
 `define ARBITER_TYPE_MATRIX              4
 
-// DesignWare first-come, first-serve arbiter
-`define ARBITER_TYPE_DW_FCFS             5
-
-`define ARBITER_TYPE_LAST `ARBITER_TYPE_DW_FCFS
+`define ARBITER_TYPE_LAST `ARBITER_TYPE_MATRIX
 
 
 //------------------------------------------------------------------------------
@@ -115,10 +112,7 @@
 // 1D array of flipflops, read using a tristate mux
 `define REGFILE_TYPE_FF_1D_SEL 2
 
-// Synopsys DesignWare implementation using flipflips
-`define REGFILE_TYPE_FF_DW     3
-
-`define REGFILE_TYPE_LAST `REGFILE_TYPE_FF_DW
+`define REGFILE_TYPE_LAST `REGFILE_TYPE_FF_1D_SEL
 
 
 //------------------------------------------------------------------------------
