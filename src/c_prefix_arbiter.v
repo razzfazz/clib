@@ -146,39 +146,52 @@ module c_prefix_arbiter
 	   
 	end
       
+      if(num_priorities == 1)
+	begin
+	   assign gnt_pr = gnt_intm_pr;
+	   assign gnt = gnt_intm_pr;
+	end
+      else if(num_priorities > 1)
+	begin
+	   
+	   wire [0:num_priorities-1] 	any_req_pr;
+	   c_reduce_bits
+	     #(.num_ports(num_priorities),
+	       .width(num_ports),
+	       .op(`BINARY_OP_OR))
+	   any_req_pr_rb
+	     (.data_in(req_pr),
+	      .data_out(any_req_pr));
+	   
+	   wire [0:num_priorities-1] 	any_rep_mod_pr;
+	   assign any_req_mod_pr = {any_req_pr[0:num_priorities-2], 1'b1};
+	   
+	   wire [0:num_priorities-1] 	sel_pr;
+	   c_lod
+	     #(.width(num_priorities))
+	   sel_pr_lod
+	     (.data_in(any_req_pr),
+	      .data_out(sel_pr));
+	   
+	   c_gate_bits
+	     #(.num_ports(num_priorities),
+	       .width(num_ports),
+	       .op(`BINARY_OP_AND))
+	   gnt_pr_gb
+	     (.select(sel_pr),
+	      .data_in(gnt_intm_pr),
+	      .data_out(gnt_pr));
+	   
+	   c_select_1ofn
+	     #(.num_ports(num_priorities),
+	       .width(num_ports))
+	   gnt_sel
+	     (.select(sel_pr),
+	      .data_in(gnt_intm_pr),
+	      .data_out(gnt));
+	   
+	end
+      
    endgenerate
-   
-   wire [0:num_priorities-1] 	any_req_pr;
-   c_reduce_bits
-     #(.num_ports(num_priorities),
-       .width(num_ports),
-       .op(`BINARY_OP_OR))
-   any_req_pr_rb
-     (.data_in(req_pr),
-      .data_out(any_req_pr));
-   
-   wire [0:num_priorities-1] 	sel_pr;
-   c_lod
-     #(.width(num_priorities))
-   sel_pr_lod
-     (.data_in(any_req_pr),
-      .data_out(sel_pr));
-   
-   c_gate_bits
-     #(.num_ports(num_priorities),
-       .width(num_ports),
-       .op(`BINARY_OP_AND))
-   gnt_pr_gb
-     (.select(sel_pr),
-      .data_in(gnt_intm_pr),
-      .data_out(gnt_pr));
-   
-   c_select_1ofn
-     #(.num_ports(num_priorities),
-       .width(num_ports))
-   gnt_sel
-     (.select(sel_pr),
-      .data_in(gnt_intm_pr),
-      .data_out(gnt));
    
 endmodule
