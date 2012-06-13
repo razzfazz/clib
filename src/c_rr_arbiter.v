@@ -173,14 +173,14 @@ module c_rr_arbiter
 	     (.data_in(req_pr),
 	      .data_out(any_req_pr));
 	   
-	   wire [0:num_priorities-1] 	any_rep_mod_pr;
+	   wire [0:num_priorities-1] 	any_req_mod_pr;
 	   assign any_req_mod_pr = {any_req_pr[0:num_priorities-2], 1'b1};
 	   
 	   wire [0:num_priorities-1] 	sel_pr;
 	   c_lod
 	     #(.width(num_priorities))
 	   sel_pr_lod
-	     (.data_in(any_req_pr),
+	     (.data_in(any_req_mod_pr),
 	      .data_out(sel_pr));
 	   
 	   c_gate_bits
