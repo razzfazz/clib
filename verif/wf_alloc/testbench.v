@@ -35,7 +35,9 @@ module testbench
    
    parameter num_ports = 8;
    
-   parameter wf_alloc_type = `WF_ALLOC_TYPE_SDPA;
+   parameter skip_empty_diags = 1;
+   
+   parameter wf_alloc_type = `WF_ALLOC_TYPE_DPA;
    
    parameter reset_type = `RESET_TYPE_ASYNC;
    
@@ -58,6 +60,7 @@ module testbench
    c_wf_alloc
      #(.num_ports(num_ports),
        .num_priorities(1),
+	.skip_empty_diags(skip_empty_diags),
        .wf_alloc_type(wf_alloc_type),
        .reset_type(reset_type))
    dut

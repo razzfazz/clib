@@ -40,6 +40,9 @@ module c_wf_alloc_mux
    // each input can bid for any combination of outputs
    parameter num_ports = 8;
    
+   // when selecting next priority diagonal, skip diagonals without requests
+   parameter skip_empty_diags = 0;
+   
    // width required to select an individual port
    localparam port_idx_width = clogb(num_ports);
    
@@ -62,13 +65,70 @@ module c_wf_alloc_mux
    wire [0:port_idx_width-1] 	  prio_q;
    
    wire [0:port_idx_width-1] 	  prio_next;
-   c_incr
-     #(.width(port_idx_width),
-       .min_value(0),
-       .max_value(num_ports-1))
-   prio_next_incr
-     (.data_in(prio_q),
-      .data_out(prio_next));
+
+   generate
+
+      if(skip_empty_diags)
+	begin
+	   
+	   wire [0:num_ports-1] req_on_diag;
+	   
+	   genvar diag;
+	   
+	   for(diag = 0; diag < num_ports; diag = diag + 1)
+	     begin:diags
+		
+		wire [0:num_ports-1] diag_reqs;
+		
+		genvar 		     idx;
+		
+		for(idx = 0; idx < num_ports; idx = idx + 1)
+		  begin:idxs
+		     assign diag_reqs[idx]
+		       = req[idx*num_ports+(num_ports+diag-idx)%num_ports];
+		  end
+		
+		assign req_on_diag[diag] = |diag_reqs;
+		
+	     end
+	   
+	   wire [0:num_ports-1] prio_port;
+	   c_decode
+	     #(.num_ports(num_ports))
+	   prio_port_dec
+	     (.data_in(prio_q),
+	      .data_out(prio_port));
+	   
+	   wire [0:num_ports-1] first_diag;
+	   c_prefix_arbiter_base
+	     #(.num_ports(num_ports))
+	   first_diag_pa
+	     (.prio_port(prio_port),
+	      .req(req_on_diag),
+	      .gnt(first_diag));
+	   
+	   c_encode
+	     #(.num_ports(num_ports),
+	       .offset(1))
+	   prio_next_enc
+	     (.data_in(first_diag),
+	      .data_out(prio_next));
+	   
+	end
+      else
+	begin
+	   
+	   c_incr
+	     #(.width(port_idx_width),
+	       .min_value(0),
+	       .max_value(num_ports-1))
+	   prio_next_incr
+	     (.data_in(prio_q),
+	      .data_out(prio_next));
+	   
+	end
+      
+   endgenerate
    
    wire [0:port_idx_width-1] 	  prio_s;
    assign prio_s = update ? prio_next : prio_q;

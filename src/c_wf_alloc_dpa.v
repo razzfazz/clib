@@ -40,6 +40,9 @@ module c_wf_alloc_dpa
    // each input can bid for any combination of outputs
    parameter num_ports = 8;
    
+   // when selecting next priority diagonal, skip diagonals without requests
+   parameter skip_empty_diags = 0;
+   
    parameter reset_type = `RESET_TYPE_ASYNC;
    
    // reset value for priority pointer
@@ -55,19 +58,78 @@ module c_wf_alloc_dpa
    
    // grant matrix
    output [0:num_ports*num_ports-1] gnt;
-   wire [0:num_ports*num_ports-1] gnt;
+   wire [0:num_ports*num_ports-1]   gnt;
    
    // update port priorities
-   input update;
+   input 			    update;
    
-   wire [0:(2*num_ports-1)-1] 	  prio_q;
+   wire [0:(2*num_ports-1)-1] 	    prio_q;
    
-   wire 			  reset_prio;
-   assign reset_prio = ~|prio_q[0:(num_ports-1)-1];
+   wire [0:(2*num_ports-1)-1] 	    prio_next;
    
-   wire [0:(2*num_ports-1)-1] 	  prio_next;
-   assign prio_next
-     = reset_prio ? prio_init : {1'b0, prio_q[0:(2*num_ports-1)-2]};
+   generate
+      
+      if(skip_empty_diags)
+	begin
+	   
+	   wire [0:num_ports-1] req_on_diag;
+	   
+	   genvar 		diag;
+	   
+	   for(diag = 0; diag < num_ports; diag = diag + 1)
+	     begin:diags
+		
+		wire [0:num_ports-1] diag_reqs;
+		
+		genvar 		     idx;
+		
+		for(idx = 0; idx < num_ports; idx = idx + 1)
+		  begin:idxs
+		     assign diag_reqs[idx]
+		       = req[idx*num_ports+(num_ports+diag-idx)%num_ports];
+		  end
+		
+		assign req_on_diag[diag] = |diag_reqs;
+		
+	     end
+	   
+	   wire [0:num_ports-1] mask;
+	   assign mask = prio_q[0:num_ports-1];
+	   
+	   wire [0:num_ports-1] first_diag;
+	   c_rr_arbiter_base
+	     #(.num_ports(num_ports))
+	   first_diag_pa
+	     (.mask(mask),
+	      .req(req_on_diag),
+	      .gnt(first_diag));
+	   
+	   wire [0:num_ports-1] next_diag;
+	   assign next_diag
+	     = {first_diag[num_ports-1], first_diag[0:num_ports-2]};
+	   
+	   wire [0:num_ports-1] next_diag_therm;
+	   c_one_hot_therm_conv
+	     #(.width(num_ports))
+	   next_diag_therm_ohtc
+	     (.data_in(next_diag),
+	      .data_out(next_diag_therm));
+	   
+	   assign prio_next = {next_diag_therm, {(num_ports-1){1'b1}}};
+	   
+	end
+      else
+	begin
+	   
+	   wire reset_prio;
+	   assign reset_prio = ~|prio_q[0:(num_ports-1)-1];
+	   
+	   assign prio_next
+	     = reset_prio ? prio_init : {1'b0, prio_q[0:(2*num_ports-1)-2]};
+	   
+	end
+      
+   endgenerate
    
    wire [0:(2*num_ports-1)-1] 	  prio_s;
    assign prio_s = update ? prio_next : prio_q;

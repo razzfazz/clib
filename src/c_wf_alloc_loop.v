@@ -26,7 +26,7 @@
 */
 
 //==============================================================================
-// wavefron allocator variant which uses wraparound (forming a false 
+// wavefront allocator variant which uses wraparound (forming a false 
 // combinational loop) as described in Dally et al, "Principles and Practices of
 // Interconnection Networks"
 //==============================================================================
@@ -40,10 +40,13 @@ module c_wf_alloc_loop
    // each input can bid for any combination of outputs
    parameter num_ports = 8;
    
-   parameter reset_type = `RESET_TYPE_ASYNC;
+   // when selecting next priority diagonal, skip diagonals without requests
+   parameter skip_empty_diags = 0;
    
    // reset value for priority pointer
    localparam [0:num_ports-1] prio_init = {1'b1, {(num_ports-1){1'b0}}};
+   
+   parameter reset_type = `RESET_TYPE_ASYNC;
    
    input clk;
    input reset;
@@ -59,11 +62,57 @@ module c_wf_alloc_loop
    // update port priorities
    input update;
    
+   wire [0:num_ports-1] prio_q;
+   
+   wire [0:num_ports-1] prio_next;
+   
+   generate
+
+      if(skip_empty_diags)
+	begin
+	   
+	   wire [0:num_ports-1] req_on_diag;
+	   
+	   genvar diag;
+	   
+	   for(diag = 0; diag < num_ports; diag = diag + 1)
+	     begin:diags
+		
+		wire [0:num_ports-1] diag_reqs;
+		
+		genvar 		     idx;
+		
+		for(idx = 0; idx < num_ports; idx = idx + 1)
+		  begin:idxs
+		     assign diag_reqs[idx]
+		       = req[idx*num_ports+(num_ports+diag-idx)%num_ports];
+		  end
+		
+		assign req_on_diag[diag] = |diag_reqs;
+		
+	     end
+
+	   wire [0:num_ports-1] first_diag;
+	   c_prefix_arbiter_base
+	     #(.num_ports(num_ports))
+	   first_diag_pa
+	     (.prio_port(prio_q),
+	      .req(req_on_diag),
+	      .gnt(first_diag));
+	   
+	   assign prio_next
+	     = {first_diag[num_ports-1], first_diag[0:num_ports-2]};
+	   
+	end
+      else
+	assign prio_next = {prio_q[num_ports-1], prio_q[0:num_ports-2]};
+      
+   endgenerate
+   
    // Need to make sure priority is one-hot, otherwise conflicting grants can be
    // generated!
-   wire [0:num_ports-1] 	  prio_s, prio_q;
-   assign prio_s
-     = update ? {prio_q[num_ports-1], prio_q[0:num_ports-2]} : prio_q;
+   wire [0:num_ports-1] 	  prio_s;
+   assign prio_s = update ? prio_next : prio_q;
    c_dff
      #(.width(num_ports),
        .reset_type(reset_type),

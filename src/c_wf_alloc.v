@@ -41,6 +41,9 @@ module c_wf_alloc
    // number of priority levels
    parameter num_priorities = 1;
    
+   // when selecting next priority diagonal, skip diagonals without requests
+   parameter skip_empty_diags = 0;
+   
    // select implementation variant
    parameter wf_alloc_type = `WF_ALLOC_TYPE_REP;
    
@@ -92,6 +95,7 @@ module c_wf_alloc
 	       begin
 		  c_wf_alloc_mux
 		    #(.num_ports(num_ports),
+		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_mux
 		    (.clk(clk),
@@ -105,6 +109,7 @@ module c_wf_alloc
 	       begin
 		  c_wf_alloc_rep
 		    #(.num_ports(num_ports),
+		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_rep
 		    (.clk(clk),
@@ -118,6 +123,7 @@ module c_wf_alloc
 	       begin
 		  c_wf_alloc_dpa
 		    #(.num_ports(num_ports),
+		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_dpa
 		    (.clk(clk),
@@ -131,6 +137,7 @@ module c_wf_alloc
 	       begin
 		  c_wf_alloc_rot
 		    #(.num_ports(num_ports),
+		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_rot
 		    (.clk(clk),
@@ -144,6 +151,7 @@ module c_wf_alloc
 	       begin
 		  c_wf_alloc_loop
 		    #(.num_ports(num_ports),
+		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_loop
 		    (.clk(clk),
@@ -157,6 +165,7 @@ module c_wf_alloc
 	       begin
 		  c_wf_alloc_sdpa
 		    #(.num_ports(num_ports),
+		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_sdpa
 		    (.clk(clk),
