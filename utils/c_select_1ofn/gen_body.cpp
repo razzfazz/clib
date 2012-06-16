@@ -5,7 +5,7 @@ int main(int argc, char ** argv) {
   int min = (argc > 1) ? atoi(argv[1]) : 1;
   int max = (argc > 2) ? atoi(argv[2]) : std::max(min, 64);
   std::cout
-    << "      // pragma translate_off\n"
+    << "      // synopsys translate_off\n"
     << "      if(num_ports < " << min << ")\n"
     << "	begin\n"
     << "	   initial\n"
@@ -15,7 +15,7 @@ int main(int argc, char ** argv) {
     << "		$stop;\n"
     << "	     end\n"
     << "	end\n"
-    << "      // pragma translate_on\n"
+    << "      // synopsys translate_on\n"
     << "      \n";
   for(int size = min; size <= max; ++size) {
     std::cout

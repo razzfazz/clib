@@ -57,7 +57,7 @@ module c_decode
    
    generate
       
-      // pragma translate_off
+      // synopsys translate_off
       if(num_ports < 2)
 	begin
 	   initial
@@ -66,7 +66,7 @@ module c_decode
 		$stop;
 	     end
 	end
-      // pragma translate_on
+      // synopsys translate_on
       
       if(num_ports == 2)
         always@(data_in)
