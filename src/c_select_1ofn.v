@@ -59,7 +59,15 @@ module c_select_1ofn
 	begin
 	   initial
 	     begin
-		$display({"ERROR: Select-mux module %m needs at least 1 outputs."});
+		$display({"ERROR: Select-mux module %m needs at least 1 inputs."});
+		$stop;
+	     end
+	end
+      else if(num_ports > 64)
+	begin
+	   initial
+	     begin
+		$display({"ERROR: Select-mux module %m supports at most 64 inputs."});
 		$stop;
 	     end
 	end

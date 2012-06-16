@@ -15,3 +15,13 @@ do
   done
   echo "         end"
 done
+echo "      // synopsys translate_off"
+echo "      else"
+echo "        begin"
+echo "          initial"
+echo "            begin"
+echo "              \$display(\"ERROR: LFSR feedback generator module %m does not support width %d.\", width);"
+echo "              \$stop;"
+echo "            end"
+echo "        end"
+echo "      // synopsys translate_on"

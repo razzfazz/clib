@@ -53,14 +53,3 @@ module c_prio_enc
    
    generate
       
-      // synopsys translate_off
-      if(num_ports < 2)
-	begin
-	   initial
-	     begin
-		$display("ERROR: Encoder module %m needs at least two inputs.");
-		$stop;
-	     end
-	end
-      // synopsys translate_on
-

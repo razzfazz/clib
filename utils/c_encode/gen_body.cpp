@@ -5,6 +5,27 @@
 int main(int argc, char ** argv) {
   int min = (argc > 1) ? atoi(argv[1]) : 2;
   int max = (argc > 2) ? atoi(argv[2]) : min;
+  std::cout
+    << "      // synopsys translate_off\n"
+    << "      if(num_ports < " << min << ")\n"
+    << "	begin\n"
+    << "	   initial\n"
+    << "	     begin\n"
+    << "		$display({\"ERROR: Encoder module %m needs at least " << min << " inputs.\"});\n"
+    << "		$stop;\n"
+    << "	     end\n"
+    << "	end\n"
+    << "      else if(num_ports > " << max << ")\n"
+    << "	begin\n"
+    << "	   initial\n"
+    << "	     begin\n"
+    << "		$display({\"ERROR: Encoder module %m supports at most "
+    << max << " inputs.\"});\n"
+    << "		$stop;\n"
+    << "	     end\n"
+    << "	end\n"
+    << "      // synopsys translate_on\n"
+    << "      \n";
   for(int size = min; size <= max; ++size) {
     int width = (int)ceil(log2(size));
     std::cout

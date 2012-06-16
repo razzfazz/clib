@@ -58,12 +58,20 @@ module c_prio_enc
 	begin
 	   initial
 	     begin
-		$display("ERROR: Encoder module %m needs at least two inputs.");
+		$display({"ERROR: Priority encoder module %m needs at least 2 inputs."});
+		$stop;
+	     end
+	end
+      else if(num_ports > 64)
+	begin
+	   initial
+	     begin
+		$display({"ERROR: Encoder module %m supports at most 64 inputs."});
 		$stop;
 	     end
 	end
       // synopsys translate_on
-
+      
       if(num_ports == 2)
         always@(data_in)
           begin

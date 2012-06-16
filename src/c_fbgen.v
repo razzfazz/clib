@@ -3179,6 +3179,16 @@ module c_fbgen
             else if((index % 61) == 59) assign feedback = 39'h400000051C;
             else if((index % 61) == 60) assign feedback = 39'h4000000523;
          end
+      // synopsys translate_off
+      else
+        begin
+          initial
+            begin
+              $display("ERROR: LFSR feedback generator module %m does not support width %d.", width);
+              $stop;
+            end
+        end
+      // synopsys translate_on
       
    endgenerate
    

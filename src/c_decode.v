@@ -66,6 +66,14 @@ module c_decode
 		$stop;
 	     end
 	end
+      else if(num_ports > 64)
+	begin
+	   initial
+	     begin
+		$display({"ERROR: Decoder module %m supports at most 64 outputs."});
+		$stop;
+	     end
+	end
       // synopsys translate_on
       
       if(num_ports == 2)

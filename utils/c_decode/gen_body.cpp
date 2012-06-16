@@ -16,6 +16,15 @@ int main(int argc, char ** argv) {
     << "		$stop;\n"
     << "	     end\n"
     << "	end\n"
+    << "      else if(num_ports > " << max << ")\n"
+    << "	begin\n"
+    << "	   initial\n"
+    << "	     begin\n"
+    << "		$display({\"ERROR: Decoder module %m supports at most "
+    << max << " outputs.\"});\n"
+    << "		$stop;\n"
+    << "	     end\n"
+    << "	end\n"
     << "      // synopsys translate_on\n"
     << "      \n";
   for(int size = min; size <= max; ++size) {
