@@ -33,7 +33,7 @@ module testbench
 `include "c_constants.v"
 `include "c_functions.v"
    
-   parameter width = 16;
+   parameter width = 5;
    
    parameter Tclk = 2;
    
