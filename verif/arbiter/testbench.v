@@ -33,7 +33,7 @@ module testbench
 `include "c_constants.v"
 `include "c_functions.v"
    
-   parameter num_ports = 8;
+   parameter num_ports = 5;
    
    parameter arbiter_type = `ARBITER_TYPE_ROUND_ROBIN_BINARY;
    
