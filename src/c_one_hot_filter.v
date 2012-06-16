@@ -40,6 +40,9 @@ module c_one_hot_filter
    // number of stages
    localparam depth = clogb(width);
    
+   // width rounded up to nearest power of two
+   localparam ext_width = (1 << depth);
+   
    // input data
    input [0:width-1] data_in;
    
@@ -49,44 +52,50 @@ module c_one_hot_filter
    
    genvar 	      level;
    
-   wire [0:(depth+1)*width-1] a_int;
-   wire [0:(depth+1)*width-1] b_int;
+   wire [0:(depth+1)*ext_width-1] a_int;
+   wire [0:(depth+1)*ext_width-1] b_int;
    
-   assign a_int[0:width-1] = data_in;
-   assign b_int[0:width-1] = data_in;
+   assign a_int[ext_width-width:ext_width-1] = data_in;
+   assign b_int[ext_width-width:ext_width-1] = data_in;
    
    generate
+      
+      if(ext_width > width)
+	begin
+	   assign a_int[0:ext_width-width-1] = {(ext_width-width){1'b0}};
+	   assign b_int[0:ext_width-width-1] = {(ext_width-width){1'b0}};
+	end
       
       for(level = 0; level < depth; level = level + 1)
 	begin:levels
 	   
-	   wire [0:width-1] a_in;
-	   assign a_in = a_int[level*width:(level+1)*width-1];
+	   wire [0:ext_width-1] a_in;
+	   assign a_in = a_int[level*ext_width:(level+1)*ext_width-1];
 	   
-	   wire [0:width-1] b_in;
-	   assign b_in = b_int[level*width:(level+1)*width-1];
+	   wire [0:ext_width-1] b_in;
+	   assign b_in = b_int[level*ext_width:(level+1)*ext_width-1];
 	   
-	   wire [0:width-1] a_shifted;
-	   assign a_shifted
-	     = {a_in[width-(1<<level):width-1], a_in[0:width-(1<<level)-1]};
+	   wire [0:ext_width-1] a_shifted;
+	   assign a_shifted = {a_in[ext_width-(1<<level):ext_width-1], 
+			       a_in[0:ext_width-(1<<level)-1]};
 	   
-	   wire [0:width-1] b_shifted;
-	   assign b_shifted
-	     = {b_in[width-(1<<level):width-1], b_in[0:width-(1<<level)-1]};
+	   wire [0:ext_width-1] b_shifted;
+	   assign b_shifted = {b_in[ext_width-(1<<level):ext_width-1], 
+			       b_in[0:ext_width-(1<<level)-1]};
 	   
-	   wire [0:width-1] a_out;
+	   wire [0:ext_width-1] a_out;
 	   assign a_out = a_in | a_shifted;
 	   
-	   wire [0:width-1] b_out;
+	   wire [0:ext_width-1] b_out;
 	   assign b_out = b_in & ~a_shifted;
 	   
-	   assign a_int[(level+1)*width:(level+2)*width-1] = a_out;
-	   assign b_int[(level+1)*width:(level+2)*width-1] = b_out;
+	   assign a_int[(level+1)*ext_width:(level+2)*ext_width-1] = a_out;
+	   assign b_int[(level+1)*ext_width:(level+2)*ext_width-1] = b_out;
 	   
 	end
       
    endgenerate
    
-   assign data_out = b_int[depth*width:(depth+1)*width-1];
+   assign data_out = b_int[(depth+1)*ext_width-width:(depth+1)*ext_width-1];
    
 endmodule
