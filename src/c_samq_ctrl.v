@@ -54,6 +54,9 @@ module c_samq_ctrl
    // allow bypassing through empty FIFO (i.e., empty & push & pop)
    parameter enable_bypass = 0;
    
+   // improve timing for next pop address generation logic
+   parameter fast_pop_next_addr = 0;
+   
    parameter reset_type = `RESET_TYPE_ASYNC;
    
    
@@ -171,14 +174,56 @@ module c_samq_ctrl
 	      .errors(errors));
 	   
 	   wire [0:addr_width-1] pop_next_addr;
-	   c_incr
-	     #(.width(addr_width),
-	       .min_value(queue * num_slots_per_queue),
-	       .max_value((queue + 1) * num_slots_per_queue - 1))
-	   pop_next_addr_incr
-	     (.data_in(pop_addr),
-	      .data_out(pop_next_addr));
+	   
+	   if(num_slots_per_queue == 1)
+	     assign pop_next_addr = pop_addr;
+	   else if(num_slots_per_queue > 1)
+	     begin
 		
+		if(fast_pop_next_addr)
+		  begin
+		     
+		     wire [0:addr_width-1] pop_next_addr_inc;
+		     c_incr
+		       #(.width(addr_width),
+			 .min_value(queue * num_slots_per_queue),
+			 .max_value((queue + 1) * num_slots_per_queue - 1))
+		     pop_next_addr_inc_incr
+		       (.data_in(pop_next_addr),
+			.data_out(pop_next_addr_inc));
+		     
+		     wire [0:addr_width-1] pop_next_addr_s, pop_next_addr_q;
+		     assign pop_next_addr_s
+		       = pop ? pop_next_addr_inc : pop_next_addr_q;
+		     c_dff
+		       #(.width(addr_width),
+			 .reset_value(queue * num_slots_per_queue + 1),
+			 .reset_type(reset_type))
+		     pop_next_addrq
+		       (.clk(clk),
+			.reset(reset),
+			.active(pop_active),
+			.d(pop_next_addr_s),
+			.q(pop_next_addr_q));
+		     
+		     assign pop_next_addr = pop_next_addr_q;
+		     
+		  end
+		else
+		  begin
+		     
+		     c_incr
+		       #(.width(addr_width),
+			 .min_value(queue * num_slots_per_queue),
+			 .max_value((queue + 1) * num_slots_per_queue - 1))
+		     pop_next_addr_incr
+		       (.data_in(pop_addr),
+			.data_out(pop_next_addr));
+		     
+		  end
+		
+	     end
+	   
 	   assign push_addr_qu[queue*addr_width:(queue+1)*addr_width-1]
 	     = push_addr;
 	   assign pop_addr_qu[queue*addr_width:(queue+1)*addr_width-1]

@@ -54,6 +54,9 @@ module c_damq_ctrl
    // allow bypassing through empty FIFO (i.e., empty & push & pop)
    parameter enable_bypass = 0;
    
+   // improve timing for next pop address generation logic
+   parameter fast_pop_next_addr = 0;
+   
    parameter reset_type = `RESET_TYPE_ASYNC;
    
    
@@ -487,21 +490,51 @@ module c_damq_ctrl
 	   
 	   wire empty;
 	   
-	   wire [0:addr_width-1] queue_head_addr;
-	   wire [0:addr_width-1] queue_tail_addr;
+	   wire [0:addr_width-1] head_addr;
+	   wire [0:addr_width-1] tail_addr;
 	   
 	   wire 		 equal;
-	   assign equal = (queue_head_addr == queue_tail_addr);
+	   assign equal = (head_addr == tail_addr);
 	   
-	   wire [0:addr_width-1] next_queue_head_addr;
-	   assign next_queue_head_addr
-	     = addr_sl[queue_head_addr*addr_width +: addr_width];
+	   wire [0:addr_width-1] next_head_addr;
+	   
+	   if(fast_pop_next_addr)
+	     begin
+		
+		wire next_equal;
+		assign next_equal = (next_head_addr == tail_addr);
+		
+		wire [0:addr_width-1] next_next_head_addr;
+		assign next_next_head_addr
+		  = addr_sl[next_head_addr*addr_width +: addr_width];
+		
+		wire [0:addr_width-1] next_head_addr_s, next_head_addr_q;
+		assign next_head_addr_s
+		  = ((equal | (next_equal & pop_valid_sel)) & push_valid_sel) ?
+		    free_head_addr :
+		    (pop_valid_sel ? next_next_head_addr : next_head_addr_q);
+		c_dff
+		  #(.width(addr_width),
+		    .reset_type(reset_type))
+		next_head_addrq
+		  (.clk(clk),
+		   .reset(1'b0),
+		   .active(active),
+		   .d(next_head_addr_s),
+		   .q(next_head_addr_q));
+		
+		assign next_head_addr = next_head_addr_q;
+		
+	     end
+	   else
+	     assign next_head_addr
+	       = addr_sl[head_addr*addr_width +: addr_width];
 	   
 	   wire [0:addr_width-1] head_addr_s, head_addr_q;
 	   assign head_addr_s
 	     = ((empty | (equal & pop_valid_sel)) & push_valid_sel) ?
 	       free_head_addr :
-	       (pop_valid_sel ? next_queue_head_addr : head_addr_q);
+	       (pop_valid_sel ? next_head_addr : head_addr_q);
 	   c_dff
 	     #(.width(addr_width),
 	       .reset_type(reset_type))
@@ -512,7 +545,7 @@ module c_damq_ctrl
 	      .d(head_addr_s),
 	      .q(head_addr_q));
 	   
-	   assign queue_head_addr = head_addr_q;
+	   assign head_addr = head_addr_q;
 	   
 	   wire [0:addr_width-1] tail_addr_s, tail_addr_q;
 	   assign tail_addr_s = push_valid_sel ? free_head_addr : tail_addr_q;
@@ -526,7 +559,7 @@ module c_damq_ctrl
 	      .d(tail_addr_s),
 	      .q(tail_addr_q));
 	   
-	   assign queue_tail_addr = tail_addr_q;
+	   assign tail_addr = tail_addr_q;
 	   
 	   wire 		 almost_empty;
 	   assign almost_empty = ~empty & equal;
@@ -577,17 +610,17 @@ module c_damq_ctrl
 	   
 	   wire [0:addr_width-1] pop_addr;
 	   if(enable_bypass)
-	     assign pop_addr = empty ? free_head_addr : queue_head_addr;
+	     assign pop_addr = empty ? free_head_addr : head_addr;
 	   else
-	     assign pop_addr = queue_head_addr;
+	     assign pop_addr = head_addr;
 	   
 	   wire [0:addr_width-1] pop_next_addr;
-	   assign pop_next_addr = next_queue_head_addr;
+	   assign pop_next_addr = next_head_addr;
 	   
 	   assign queue_head_addr_qu[queue*addr_width:(queue+1)*addr_width-1]
-	     = queue_head_addr;
+	     = head_addr;
 	   assign queue_tail_addr_qu[queue*addr_width:(queue+1)*addr_width-1]
-	     = queue_tail_addr;
+	     = tail_addr;
 	   assign pop_addr_qu[queue*addr_width:(queue+1)*addr_width-1]
 	     = pop_addr;
 	   assign pop_next_addr_qu[queue*addr_width:(queue+1)*addr_width-1]
@@ -616,13 +649,13 @@ module c_damq_ctrl
 	   
 	   always @(posedge clk)
 	     begin
-		if(~empty & ~used_q[queue_head_addr])
+		if(~empty & ~used_q[head_addr])
 		  begin
 		     $display("ERROR: Invalid head pointer in queue %d in %m.",
 			      queue);
 		     $stop;
 		  end
-		if(~empty & ~used_q[queue_tail_addr])
+		if(~empty & ~used_q[tail_addr])
 		  begin
 		     $display("ERROR: Invalid tail pointer in queue %d in %m.",
 			      queue);
