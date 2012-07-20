@@ -69,9 +69,6 @@ module c_damq_tracker
    // max. number of slots per queue
    localparam num_queue_slots = 1 + num_shared_slots;
    
-   // width required to represent full range of queue credit count
-   localparam queue_free_width = clogb(num_queue_slots+1);
-   
    
    //---------------------------------------------------------------------------
    // interface
