@@ -56,6 +56,9 @@ module c_damq_tracker
    // allow bypassing through empty FIFO (i.e., empty & push & pop)
    parameter enable_bypass = 0;
    
+   // reserve one entry for each queue
+   parameter enable_reservations = 0;
+   
    parameter reset_type = `RESET_TYPE_ASYNC;
    
    
@@ -64,10 +67,12 @@ module c_damq_tracker
    //---------------------------------------------------------------------------
    
    // number of shared credits
-   localparam num_shared_slots = num_slots - num_queues;
+   localparam num_shared_slots
+     = enable_reservations ? (num_slots - num_queues) : num_slots;
    
    // max. number of slots per queue
-   localparam num_queue_slots = 1 + num_shared_slots;
+   localparam num_queue_slots
+     = enable_reservations ? (1 + num_shared_slots) : num_slots;
    
    
    //---------------------------------------------------------------------------
@@ -112,42 +117,52 @@ module c_damq_tracker
    //---------------------------------------------------------------------------
    // implementation
    //---------------------------------------------------------------------------
-   
-   wire 		     push_empty;
-   c_select_1ofn
-     #(.num_ports(num_queues),
-       .width(1))
-   push_empty_sel
-     (.select(push_sel_qu),
-      .data_in(empty_qu),
-      .data_out(push_empty));
-   
-   wire 		     pop_almost_empty;
-   c_select_1ofn
-     #(.num_ports(num_queues),
-       .width(1))
-   pop_almost_empty_sel
-     (.select(pop_sel_qu),
-      .data_in(almost_empty_qu),
-      .data_out(pop_almost_empty));
-   
-   wire 		     same_queue;
-   assign same_queue = |(push_sel_qu & pop_sel_qu);
-   
+
    wire 		     push_shared;
-   assign push_shared = push_valid & ~push_empty & 
-			(~pop_valid | (pop_almost_empty & ~same_queue));
-   
    wire 		     pop_shared;
    
    generate
       
-      if(enable_bypass)
-	assign pop_shared = pop_valid & ~pop_almost_empty & 
-			    (~push_valid | (push_empty & ~same_queue));
+      if(enable_reservations)
+	begin
+	   
+	   wire push_empty;
+	   c_select_1ofn
+	     #(.num_ports(num_queues),
+	       .width(1))
+	   push_empty_sel
+	     (.select(push_sel_qu),
+	      .data_in(empty_qu),
+	      .data_out(push_empty));
+	   
+	   wire pop_almost_empty;
+	   c_select_1ofn
+	     #(.num_ports(num_queues),
+	       .width(1))
+	   pop_almost_empty_sel
+	     (.select(pop_sel_qu),
+	      .data_in(almost_empty_qu),
+	      .data_out(pop_almost_empty));
+	   
+	   wire same_queue;
+	   assign same_queue = |(push_sel_qu & pop_sel_qu);
+	   
+	   assign push_shared = push_valid & ~push_empty & 
+				(~pop_valid | (pop_almost_empty & ~same_queue));
+	   
+	   if(enable_bypass)
+	     assign pop_shared = pop_valid & ~pop_almost_empty & 
+				 (~push_valid | (push_empty & ~same_queue));
+	   else
+	     assign pop_shared = pop_valid & ~pop_almost_empty & 
+				 (~push_valid | push_empty);
+	   
+	end
       else
-	assign pop_shared = pop_valid & ~pop_almost_empty & 
-			    (~push_valid | push_empty);
+	begin
+	   assign push_shared = push_valid & ~pop_valid;
+	   assign pop_shared = pop_valid & ~push_valid;
+	end
       
    endgenerate
    
@@ -218,13 +233,21 @@ module c_damq_tracker
 	   assign errors[1] = private_errors[1] | (push & shared_errors[1]);
 	   
 	   wire       almost_full;
-	   assign almost_full = empty ? shared_full : shared_almost_full;
-	   
 	   wire       full;
-	   assign full = ~empty & shared_full;
-	   
 	   wire       two_free;
-	   assign two_free = empty ? shared_almost_full : shared_two_free;
+	   
+	   if(enable_reservations)
+	     begin
+		assign almost_full = empty ? shared_full : shared_almost_full;
+		assign full = ~empty & shared_full;
+	   	assign two_free = empty ? shared_almost_full : shared_two_free;
+	     end
+	   else
+	     begin
+		assign almost_full = shared_almost_full;
+		assign full = shared_full;
+	   	assign two_free = shared_two_free;
+	     end
 	   
 	   assign almost_empty_qu[queue] = almost_empty;
 	   assign empty_qu[queue] = empty;
