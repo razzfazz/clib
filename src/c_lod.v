@@ -69,9 +69,6 @@ module c_lod
 	   wire [0:width-1] a_shifted;
 	   assign a_shifted = {{(1<<level){1'b0}}, a_in[0:width-(1<<level)-1]};
 	   
-	   wire [0:width-1] b_shifted;
-	   assign b_shifted = {{(1<<level){1'b0}}, b_in[0:width-(1<<level)-1]};
-	   
 	   wire [0:width-1] a_out;
 	   assign a_out = a_in | a_shifted;
 	   
