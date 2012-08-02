@@ -65,9 +65,9 @@ module c_wf_alloc_mux
    wire [0:port_idx_width-1] 	  prio_q;
    
    wire [0:port_idx_width-1] 	  prio_next;
-
+   
    generate
-
+      
       if(skip_empty_diags)
 	begin
 	   

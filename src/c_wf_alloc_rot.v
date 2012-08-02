@@ -62,8 +62,6 @@ module c_wf_alloc_rot
    // update port priorities
    input update;
    
-   wire [0:num_ports*num_ports-1] y;
-   
    wire [0:port_idx_width-1] 	  prio_q;
    
    wire [0:port_idx_width-1] 	  prio_next;
@@ -143,6 +141,8 @@ module c_wf_alloc_rot
       .active(active),
       .d(prio_s),
       .q(prio_q));
+   
+   wire [0:num_ports*num_ports-1] y;
    
    generate
       
