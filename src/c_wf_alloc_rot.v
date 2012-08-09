@@ -62,9 +62,19 @@ module c_wf_alloc_rot
    // update port priorities
    input update;
    
-   wire [0:port_idx_width-1] 	  prio_q;
-   
    wire [0:port_idx_width-1] 	  prio_next;
+   
+   wire [0:port_idx_width-1] 	  prio_s, prio_q;
+   assign prio_s = update ? prio_next : prio_q;
+   c_dff
+     #(.width(port_idx_width),
+       .reset_type(reset_type))
+   prioq
+     (.clk(clk),
+      .reset(reset),
+      .active(active),
+      .d(prio_s),
+      .q(prio_q));
    
    generate
       
@@ -72,25 +82,12 @@ module c_wf_alloc_rot
 	begin
 	   
 	   wire [0:num_ports-1] req_on_diag;
-	   
-	   genvar diag;
-	   
-	   for(diag = 0; diag < num_ports; diag = diag + 1)
-	     begin:diags
-		
-		wire [0:num_ports-1] diag_reqs;
-		
-		genvar 		     idx;
-		
-		for(idx = 0; idx < num_ports; idx = idx + 1)
-		  begin:idxs
-		     assign diag_reqs[idx]
-		       = req[idx*num_ports+(num_ports+diag-idx)%num_ports];
-		  end
-		
-		assign req_on_diag[diag] = |diag_reqs;
-		
-	     end
+	   c_diag_op
+	     #(.width(num_ports),
+	       .op(`BINARY_OP_OR))
+	   req_on_diag_dop
+	     (.data_in(req),
+	      .data_out(req_on_diag));
 	   
 	   wire [0:num_ports-1] prio_port;
 	   c_decode
@@ -128,23 +125,7 @@ module c_wf_alloc_rot
 	   
 	end
       
-   endgenerate
-   
-   wire [0:port_idx_width-1] 	  prio_s;
-   assign prio_s = update ? prio_next : prio_q;
-   c_dff
-     #(.width(port_idx_width),
-       .reset_type(reset_type))
-   prioq
-     (.clk(clk),
-      .reset(reset),
-      .active(active),
-      .d(prio_s),
-      .q(prio_q));
-   
-   wire [0:num_ports*num_ports-1] y;
-   
-   generate
+      wire [0:num_ports*num_ports-1] y;
       
       genvar 			  row;
       for(row = 0; row < num_ports; row = row + 1)

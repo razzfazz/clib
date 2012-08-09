@@ -62,9 +62,20 @@ module c_wf_alloc_sdpa
    // update port priorities
    input 			    update;
    
-   wire [0:num_ports-1] 	    prio_q;
-   
    wire [0:num_ports-1] 	    prio_next;
+   
+   wire [0:num_ports-1] 	prio_s, prio_q;
+   assign prio_s = update ? prio_next : prio_q;
+   c_dff
+     #(.width(num_ports),
+       .reset_type(reset_type),
+       .reset_value(prio_init))
+   prioq
+     (.clk(clk),
+      .reset(reset),
+      .active(active),
+      .d(prio_s),
+      .q(prio_q));
    
    generate
       
@@ -72,26 +83,13 @@ module c_wf_alloc_sdpa
 	begin
 	   
 	   wire [0:num_ports-1] req_on_diag;
+	   c_diag_op
+	     #(.width(num_ports),
+	       .op(`BINARY_OP_OR))
+	   req_on_diag_dop
+	     (.data_in(req),
+	      .data_out(req_on_diag));
 	   
-	   genvar diag;
-	   
-	   for(diag = 0; diag < num_ports; diag = diag + 1)
-	     begin:diags
-		
-		wire [0:num_ports-1] diag_reqs;
-		
-		genvar 		     idx;
-		
-		for(idx = 0; idx < num_ports; idx = idx + 1)
-		  begin:idxs
-		     assign diag_reqs[idx]
-		       = req[idx*num_ports+(num_ports+diag-idx)%num_ports];
-		  end
-		
-		assign req_on_diag[diag] = |diag_reqs;
-		
-	     end
-
 	   wire [0:num_ports-1] first_diag;
 	   c_prefix_arbiter_base
 	     #(.num_ports(num_ports))
@@ -107,24 +105,7 @@ module c_wf_alloc_sdpa
       else
 	assign prio_next = {prio_q[num_ports-1], prio_q[0:num_ports-2]};
       
-   endgenerate
-   
-   wire [0:num_ports-1] 	prio_s;
-   assign prio_s = update ? prio_next : prio_q;
-   c_dff
-     #(.width(num_ports),
-       .reset_type(reset_type),
-       .reset_value(prio_init))
-   prioq
-     (.clk(clk),
-      .reset(reset),
-      .active(active),
-      .d(prio_s),
-      .q(prio_q));
-   
-   wire [0:num_ports*(2*num_ports-2)-1] x;
-   
-   generate
+      wire [0:num_ports*(2*num_ports-2)-1] x;
       
       genvar 				col;
       for(col = 0; col < num_ports; col = col + 1)
