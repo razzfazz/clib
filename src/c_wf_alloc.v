@@ -69,24 +69,18 @@ module c_wf_alloc
    
    generate
       
-      // synopsys translate_off
-      
-      if(num_priorities > 1)
+      if(num_ports == 1)
 	begin
 	   
-	   initial
-	     begin
-		$display({"ERROR: Wavefront allocator does not yet support ", 
-			  "multiple priorities."});
-		$stop;
-	     end
+	   c_lod
+	     #(.width(num_priorities))
+	   gnt_lod
+	     (.data_in(req_pr),
+	      .data_out(gnt_pr));
+	   
+	   assign gnt = |req_pr;
 	   
 	end
-      
-      // synopsys translate_on
-      
-      if(num_ports == 1)
-	assign gnt_pr = req_pr;
       else if(num_ports > 1)
 	begin
 	   
@@ -95,84 +89,96 @@ module c_wf_alloc
 	       begin
 		  c_wf_alloc_mux
 		    #(.num_ports(num_ports),
+		      .num_priorities(num_priorities),
 		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_mux
 		    (.clk(clk),
 		     .reset(reset),
 		     .active(active),
-		     .req(req_pr),
-		     .gnt(gnt_pr),
+		     .req_pr(req_pr),
+		     .gnt_pr(gnt_pr),
+		     .gnt(gnt),
 		     .update(update));
 	       end
 	     `WF_ALLOC_TYPE_REP:
 	       begin
 		  c_wf_alloc_rep
 		    #(.num_ports(num_ports),
+		      .num_priorities(num_priorities),
 		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_rep
 		    (.clk(clk),
 		     .reset(reset),
 		     .active(active),
-		     .req(req_pr),
-		     .gnt(gnt_pr),
+		     .req_pr(req_pr),
+		     .gnt_pr(gnt_pr),
+		     .gnt(gnt),
 		     .update(update));
 	       end
 	     `WF_ALLOC_TYPE_DPA:
 	       begin
 		  c_wf_alloc_dpa
 		    #(.num_ports(num_ports),
+		      .num_priorities(num_priorities),
 		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_dpa
 		    (.clk(clk),
 		     .reset(reset),
 		     .active(active),
-		     .req(req_pr),
-		     .gnt(gnt_pr),
+		     .req_pr(req_pr),
+		     .gnt_pr(gnt_pr),
+		     .gnt(gnt),
 		     .update(update));
 	       end      
 	     `WF_ALLOC_TYPE_ROT:
 	       begin
 		  c_wf_alloc_rot
 		    #(.num_ports(num_ports),
+		      .num_priorities(num_priorities),
 		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_rot
 		    (.clk(clk),
 		     .reset(reset),
 		     .active(active),
-		     .req(req_pr),
-		     .gnt(gnt_pr),
+		     .req_pr(req_pr),
+		     .gnt_pr(gnt_pr),
+		     .gnt(gnt),
 		     .update(update));
 	       end
 	     `WF_ALLOC_TYPE_LOOP:
 	       begin
 		  c_wf_alloc_loop
 		    #(.num_ports(num_ports),
+		      .num_priorities(num_priorities),
 		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_loop
 		    (.clk(clk),
 		     .reset(reset),
 		     .active(active),
-		     .req(req_pr),
-		     .gnt(gnt_pr),
+		     .req_pr(req_pr),
+		     .gnt_pr(gnt_pr),
+		     .gnt(gnt),
 		     .update(update));
 	       end
 	     `WF_ALLOC_TYPE_SDPA:
 	       begin
 		  c_wf_alloc_sdpa
 		    #(.num_ports(num_ports),
+		      .num_priorities(num_priorities),
 		      .skip_empty_diags(skip_empty_diags),
 		      .reset_type(reset_type))
 		  core_sdpa
 		    (.clk(clk),
 		     .reset(reset),
 		     .active(active),
-		     .req(req_pr),
-		     .gnt(gnt_pr),
+		     .req_pr(req_pr),
+		     .gnt_pr(gnt_pr),
+		     .gnt(gnt),
 		     .update(update));
 	       end
 	   endcase
@@ -180,7 +186,5 @@ module c_wf_alloc
 	end
       
    endgenerate
-   
-   assign gnt = gnt_pr;
    
 endmodule

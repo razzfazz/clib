@@ -31,7 +31,7 @@
 //==============================================================================
 
 module c_wf_alloc_rot
-  (clk, reset, active, req, gnt, update);
+  (clk, reset, active, req_pr, gnt_pr, gnt, update);
    
 `include "c_functions.v"
 `include "c_constants.v"
@@ -39,6 +39,9 @@ module c_wf_alloc_rot
    // number of input/output ports
    // each input can bid for any combination of outputs
    parameter num_ports = 8;
+   
+   // number of priority levels
+   parameter num_priorities = 1;
    
    // when selecting next priority diagonal, skip diagonals without requests
    parameter skip_empty_diags = 0;
@@ -53,18 +56,22 @@ module c_wf_alloc_rot
    input active;
    
    // request matrix
-   input [0:num_ports*num_ports-1] req;
+   input [0:num_priorities*num_ports*num_ports-1] req_pr;
    
    // grant matrix
-   output [0:num_ports*num_ports-1] gnt;
-   wire [0:num_ports*num_ports-1] gnt;
+   output [0:num_priorities*num_ports*num_ports-1] gnt_pr;
+   wire [0:num_priorities*num_ports*num_ports-1]   gnt_pr;
+   
+   // combined grant matrix
+   output [0:num_ports*num_ports-1] 		   gnt;
+   wire [0:num_ports*num_ports-1] 		   gnt;
    
    // update port priorities
-   input update;
+   input 					   update;
    
-   wire [0:port_idx_width-1] 	  prio_next;
+   wire [0:port_idx_width-1] 			   prio_next;
    
-   wire [0:port_idx_width-1] 	  prio_s, prio_q;
+   wire [0:port_idx_width-1] 			   prio_s, prio_q;
    assign prio_s = update ? prio_next : prio_q;
    c_dff
      #(.width(port_idx_width),
@@ -78,31 +85,46 @@ module c_wf_alloc_rot
    
    generate
       
+      wire [0:num_priorities*num_ports-1] 	   first_diag_pr;
+      
       if(skip_empty_diags)
 	begin
 	   
-	   wire [0:num_ports-1] req_on_diag;
-	   c_diag_op
-	     #(.width(num_ports),
-	       .op(`BINARY_OP_OR))
-	   req_on_diag_dop
-	     (.data_in(req),
-	      .data_out(req_on_diag));
-	   
-	   wire [0:num_ports-1] prio_port;
-	   c_decode
-	     #(.num_ports(num_ports))
-	   prio_port_dec
-	     (.data_in(prio_q),
-	      .data_out(prio_port));
-	   
 	   wire [0:num_ports-1] first_diag;
-	   c_prefix_arbiter_base
-	     #(.num_ports(num_ports))
-	   first_diag_pa
-	     (.prio_port(prio_port),
-	      .req(req_on_diag),
-	      .gnt(first_diag));
+	   
+	   if(num_priorities == 1)
+	     assign first_diag = first_diag_pr;
+	   else if(num_priorities > 1)
+	     begin
+		
+		wire [0:num_priorities-1] any_req_pr;
+		c_reduce_bits
+		  #(.num_ports(num_priorities),
+		    .width(num_ports),
+		    .op(`BINARY_OP_OR))
+		any_req_pr_rb
+		  (.data_in(first_diag_pr),
+		   .data_out(any_req_pr));
+		
+		wire [0:num_priorities-1] 	  any_req_mod_pr;
+		assign any_req_mod_pr = {any_req_pr[0:num_priorities-2], 1'b1};
+		
+		wire [0:num_priorities-1] 	  sel_pr;
+		c_lod
+		  #(.width(num_priorities))
+		sel_pr_lod
+		  (.data_in(any_req_mod_pr),
+		   .data_out(sel_pr));
+		
+		c_select_1ofn
+		  #(.num_ports(num_priorities),
+		    .width(num_ports))
+		prio_next_sel
+		  (.select(sel_pr),
+		   .data_in(first_diag_pr),
+		   .data_out(first_diag));
+		
+	     end
 	   
 	   c_encode
 	     #(.num_ports(num_ports),
@@ -125,72 +147,170 @@ module c_wf_alloc_rot
 	   
 	end
       
-      wire [0:num_ports*num_ports-1] y;
+      wire [0:num_priorities*num_ports*num_ports-1] gnt_intm_pr;
+      assign gnt = gnt_intm_pr[(num_priorities-1)*num_ports*num_ports:
+			       num_priorities*num_ports*num_ports-1];
       
-      genvar 			  row;
-      for(row = 0; row < num_ports; row = row + 1)
-	begin:rows
+      genvar 					    pr;
+      
+      for(pr = 0; pr < num_priorities; pr = pr + 1)
+	begin:prs
 	   
-	   wire [0:num_ports-1] 	req_row;
-	   assign req_row = req[row*num_ports:(row+1)*num_ports-1];
+	   wire [0:num_ports*num_ports-1] req;
+	   assign req
+	     = req_pr[pr*num_ports*num_ports:(pr+1)*num_ports*num_ports-1];
 	   
-	   wire [0:port_idx_width-1] 	current_row;
-	   assign current_row = row;
+	   if(skip_empty_diags)
+	     begin
+		
+		wire [0:num_ports-1] req_on_diag;
+		c_diag_op
+		  #(.width(num_ports),
+		    .op(`BINARY_OP_OR))
+		req_on_diag_dop
+		  (.data_in(req),
+		   .data_out(req_on_diag));
+		
+		wire [0:num_ports-1] prio_port;
+		c_decode
+		  #(.num_ports(num_ports))
+		prio_port_dec
+		  (.data_in(prio_q),
+		   .data_out(prio_port));
+		
+		wire [0:num_ports-1] first_diag;
+		c_prefix_arbiter_base
+		  #(.num_ports(num_ports))
+		first_diag_pa
+		  (.prio_port(prio_port),
+		   .req(req_on_diag),
+		   .gnt(first_diag));
+		
+		assign first_diag_pr[pr*num_ports:(pr+1)*num_ports-1]
+		  = first_diag;
+		
+	     end
 	   
-	   wire [0:num_ports-1] 	req_tmp;
-	   c_rotate
-	     #(.width(num_ports),
-	       .rotate_dir(`ROTATE_DIR_RIGHT))
-	   req_tmp_rot
-	     (.amount(current_row),
-	      .data_in(req_row),
-	      .data_out(req_tmp));
+	   wire [0:num_ports*num_ports-1] gnt_intm_in;
+	   if(pr == 0)
+	     assign gnt_intm_in = {(num_ports*num_ports){1'b0}};
+	   else if(pr > 0)
+	     assign gnt_intm_in
+	       = gnt_intm_pr[(pr-1)*num_ports*num_ports:
+			     pr*num_ports*num_ports-1];
 	   
-	   wire [0:num_ports-1] 	req_in;
-	   c_rotate
-	     #(.width(num_ports),
-	       .rotate_dir(`ROTATE_DIR_LEFT))
-	   req_in_rot
-	     (.amount(prio_q),
-	      .data_in(req_tmp),
-	      .data_out(req_in));
+	   wire [0:num_ports-1] 	  row_gnt;
+	   c_reduce_bits
+	     #(.num_ports(num_ports),
+	       .width(num_ports),
+	       .op(`BINARY_OP_OR))
+	   row_gnt_rb
+	     (.data_in(gnt_intm_in),
+	      .data_out(row_gnt));
 	   
-	   wire [0:num_ports-1] 	x_in, y_in;
-	   wire [0:num_ports] 		x_out, y_out;
+	   wire [0:num_ports-1] 	  col_gnt;
+	   c_binary_op
+	     #(.num_ports(num_ports),
+	       .width(num_ports),
+	       .op(`BINARY_OP_OR))
+	   col_gnt_bop
+	     (.data_in(gnt_intm_in),
+	      .data_out(col_gnt));
 	   
-	   assign x_in = x_out[0:num_ports-1];
-	   assign y_in = y[((row+num_ports)%num_ports)*num_ports:
-			   ((row+num_ports)%num_ports+1)*num_ports-1];
+	   wire [0:num_ports*num_ports-1] mask;
+	   c_mat_mult
+	     #(.dim1_width(num_ports),
+	       .dim2_width(1),
+	       .dim3_width(num_ports),
+	       .prod_op(`BINARY_OP_NOR),
+	       .sum_op(`BINARY_OP_OR))
+	   mask_mmult
+	     (.input_a(row_gnt),
+	      .input_b(col_gnt),
+	      .result(mask));
 	   
-	   assign x_out = {1'b1, (~y_in | ~req_in) & x_in};
-	   assign y_out = {1'b1, (~x_in | ~req_in) & y_in};
+	   wire [0:num_ports*num_ports-1] req_masked;
+	   assign req_masked = req & mask;
 	   
-	   wire [0:num_ports-1] 	gnt_out;
-	   assign gnt_out = req_in & x_in & y_in;
+	   wire [0:num_ports*num_ports-1] gnt;
+	   assign gnt_pr[pr*num_ports*num_ports:(pr+1)*num_ports*num_ports-1]
+	     = gnt;
 	   
-	   assign y[((row+num_ports+1)%num_ports)*num_ports:
-		    ((row+num_ports+1)%num_ports+1)*num_ports-1]
-		    = y_out[0:num_ports-1];
+	   wire [0:num_ports*num_ports-1] gnt_intm_out;
+	   assign gnt_intm_out = gnt_intm_in | gnt;
 	   
-	   wire [0:num_ports-1] 	gnt_tmp;
-	   c_rotate
-	     #(.width(num_ports),
-	       .rotate_dir(`ROTATE_DIR_RIGHT))
-	   gnt_tmp_rot
-	     (.amount(prio_q),
-	      .data_in(gnt_out),
-	      .data_out(gnt_tmp));
+	   assign gnt_intm_pr[pr*num_ports*num_ports:
+			      (pr+1)*num_ports*num_ports-1]
+	     = gnt_intm_out;
 	   
-	   wire [0:num_ports-1] 	gnt_row;
-	   c_rotate
-	     #(.width(num_ports),
-	       .rotate_dir(`ROTATE_DIR_LEFT))
-	   gnt_row_rot
-	     (.amount(current_row),
-	      .data_in(gnt_tmp),
-	      .data_out(gnt_row));
+	   wire [0:num_ports*num_ports-1] y;
 	   
-	   assign gnt[row*num_ports:(row+1)*num_ports-1] = gnt_row;
+	   genvar 			  row;
+	   for(row = 0; row < num_ports; row = row + 1)
+	     begin:rows
+		
+		wire [0:num_ports-1] 	req_row;
+		assign req_row = req_masked[row*num_ports:(row+1)*num_ports-1];
+		
+		wire [0:port_idx_width-1] current_row;
+		assign current_row = row;
+		
+		wire [0:num_ports-1] 	  req_tmp;
+		c_rotate
+		  #(.width(num_ports),
+		    .rotate_dir(`ROTATE_DIR_RIGHT))
+		req_tmp_rot
+		  (.amount(current_row),
+		   .data_in(req_row),
+		   .data_out(req_tmp));
+		
+		wire [0:num_ports-1] 	  req_in;
+		c_rotate
+		  #(.width(num_ports),
+		    .rotate_dir(`ROTATE_DIR_LEFT))
+		req_in_rot
+		  (.amount(prio_q),
+		   .data_in(req_tmp),
+		   .data_out(req_in));
+		
+		wire [0:num_ports-1] 	  x_in, y_in;
+		wire [0:num_ports] 	  x_out, y_out;
+		
+		assign x_in = x_out[0:num_ports-1];
+		assign y_in = y[((row+num_ports)%num_ports)*num_ports:
+				((row+num_ports)%num_ports+1)*num_ports-1];
+		
+		assign x_out = {1'b1, (~y_in | ~req_in) & x_in};
+		assign y_out = {1'b1, (~x_in | ~req_in) & y_in};
+		
+		wire [0:num_ports-1] 	  gnt_out;
+		assign gnt_out = req_in & x_in & y_in;
+		
+		assign y[((row+num_ports+1)%num_ports)*num_ports:
+			 ((row+num_ports+1)%num_ports+1)*num_ports-1]
+		  = y_out[0:num_ports-1];
+		
+		wire [0:num_ports-1] 	  gnt_tmp;
+		c_rotate
+		  #(.width(num_ports),
+		    .rotate_dir(`ROTATE_DIR_RIGHT))
+		gnt_tmp_rot
+		  (.amount(prio_q),
+		   .data_in(gnt_out),
+		   .data_out(gnt_tmp));
+		
+		wire [0:num_ports-1] 	  gnt_row;
+		c_rotate
+		  #(.width(num_ports),
+		    .rotate_dir(`ROTATE_DIR_LEFT))
+		gnt_row_rot
+		  (.amount(current_row),
+		   .data_in(gnt_tmp),
+		   .data_out(gnt_row));
+		
+		assign gnt[row*num_ports:(row+1)*num_ports-1] = gnt_row;
+		
+	     end
 	   
 	end
       
